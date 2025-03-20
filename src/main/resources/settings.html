@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - WebEngine</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="container">
+    <h1>WebEngine Settings</h1>
+
+    <!-- General Settings Section -->
+    <section class="setting-section">
+        <h2>JavaScript Settings</h2>
+        <label class="setting-item">
+            <input type="checkbox" id="enableJs" checked> Enable JavaScript
+        </label>
+    </section>
+
+    <section class="setting-section">
+        <h2>User Agent</h2>
+        <label for="userAgent">Custom User Agent:</label>
+        <input type="text" id="userAgent" value="Mozilla/5.0 (Windows NT 10.0; Win64; x64)">
+    </section>
+
+    <!-- Privacy Settings Section -->
+    <section class="setting-section">
+        <h2>Cookies Settings</h2>
+        <label class="setting-item">
+            <input type="checkbox" id="enableCookies" checked> Enable Cookies
+        </label>
+    </section>
+
+    <section class="setting-section">
+        <h2>Tracking Protection</h2>
+        <label class="setting-item">
+            <input type="checkbox" id="enableTrackingProtection" checked> Block Tracking Scripts
+        </label>
+    </section>
+
+    <!-- Appearance Settings Section -->
+    <section class="setting-section">
+        <h2>Theme Settings</h2>
+        <label for="theme">Select Theme:</label>
+        <select id="theme">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+        </select>
+    </section>
+
+    <section class="setting-section">
+        <h2>Font Size</h2>
+        <label for="fontSize">Select Font Size:</label>
+        <select id="fontSize">
+            <option value="small">Small</option>
+            <option value="medium" selected>Medium</option>
+            <option value="large">Large</option>
+        </select>
+    </section>
+
+    <section>
+        <button class="apply-button" onclick="applySettings()">Apply Settings</button>
+    </section>
+</div>
+
+<script>
+    // Function to apply settings
+    function applySettings() {
+        const enableJs = document.getElementById("enableJs").checked;
+        const userAgent = document.getElementById("userAgent").value;
+        const enableCookies = document.getElementById("enableCookies").checked;
+        const enableTrackingProtection = document.getElementById("enableTrackingProtection").checked;
+        const theme = document.getElementById("theme").value;
+        const fontSize = document.getElementById("fontSize").value;
+
+        // Use the JavaScript Bridge to call Java methods
+        java.setJavaScriptEnabled(enableJs);  // Enable or disable JavaScript
+        java.setUserAgent(userAgent);  // Set the custom user agent
+
+        // Privacy settings
+        java.setCookiesEnabled(enableCookies);
+        java.setTrackingProtectionEnabled(enableTrackingProtection);
+
+        // Appearance settings
+        java.setTheme(theme);
+        java.setFontSize(fontSize);
+
+        // Optional: Update the UI to reflect the applied settings (not necessary but helpful)
+        alert("Settings applied:\nJavaScript: " + (enableJs ? "Enabled" : "Disabled") +
+              "\nUser Agent: " + userAgent +
+              "\nCookies: " + (enableCookies ? "Enabled" : "Disabled") +
+              "\nTracking Protection: " + (enableTrackingProtection ? "Enabled" : "Disabled") +
+              "\nTheme: " + theme +
+              "\nFont Size: " + fontSize);
+    }
+</script>
+</body>
+</html>
