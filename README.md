@@ -16,7 +16,7 @@ Prerequisites
 
 Running the Browser  
 1. Clone the repository  
-   git clone https://github.com/YourUsername/LinkBrowser.git  
+   git clone https://github.com/Kobi401/LinkBrowser.git  
 2. Navigate to the project directory  
    cd LinkBrowser  
 3. Run using Gradle  
