@@ -1,5 +1,5 @@
 Link Browser  
-A modern, lightweight web browser built with JavaFX.  
+A modern, lightweight web browser built with JavaFX using FXGL Engine.  
 
 Features  
 - Tabbed browsing – Open multiple pages at once  
