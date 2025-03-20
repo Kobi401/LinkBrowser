@@ -1,6 +1,9 @@
 package com.kobi401.browser.engine;
 
 import com.kobi401.browser.encryption.EncryptionUtils;
+import com.kobi401.browser.jsbridge.JavaScriptBridge;
+import com.kobi401.browser.security.AdBlocker;
+import com.kobi401.browser.security.SecurityUtils;
 import javafx.beans.value.ChangeListener;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
@@ -20,28 +23,42 @@ import java.util.List;
 import java.util.Set;
 import java.util.Stack;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class BrowserEngine {
     private static WebView webView;
-    private final WebEngine webEngine;
+    private WebEngine webEngine;
     private String currentUrl;
     private double loadProgress;
     private boolean isLoading;
-
+    private static final Logger logger = Logger.getLogger(BrowserEngine.class.getName());
     private CookieManager cookieManager;
-    private boolean trackingProtectionEnabled = false;
-    private Set<String> blockedTrackingUrls;
     private EncryptionUtils encryptionUtils;
     private Stack<String> webHistory = new Stack<>();
+    private SecurityUtils securityUtils;
+    private AdBlocker adBlocker;
+
+    private static BrowserEngine instance;
+
+    public static BrowserEngine getInstance() {
+        if (instance == null) {
+            instance = new BrowserEngine();
+        }
+        return instance;
+    }
 
     public BrowserEngine() {
+        initialize();
+    }
+
+    private void initialize() {
         webView = new WebView();
+        this.securityUtils = new SecurityUtils();
         this.encryptionUtils = new EncryptionUtils();
         webEngine = webView.getEngine();
         cookieManager = new CookieManager();
-        blockedTrackingUrls = new HashSet<>();
         java.net.CookieHandler.setDefault(cookieManager);
 
         String userHome = System.getProperty("user.home");
@@ -57,69 +74,50 @@ public class BrowserEngine {
         }
         webView.getEngine().setUserDataDirectory(userDataDirectory);
 
-        JSObject jsObject = (JSObject) webEngine.executeScript("window");
-        jsObject.setMember("java", this);
+        // Initialize JavaScript bridge once
+        JSObject jsBridge = (JSObject) webEngine.executeScript("window");
+        JavaScriptBridge.getInstance().setJsBridge(jsBridge);
 
-        loadPage("welcome.html");
+        if (JavaScriptBridge.getInstance().isInitialized()) {
+            logger.info("Successfully initialized JavaScriptBridge.");
+        } else {
+            logger.severe("Failed to initialize JavaScriptBridge.");
+        }
 
-        // Listen for page load progress
+        // Set Java bridge object
+        jsBridge.setMember("java", this);
+
+        // Initialize AdBlocker only once
+        if (this.adBlocker == null) {
+            this.adBlocker = new AdBlocker();
+        }
+
+        loadLocalHtml("welcome.html");
+
+        // Event Listeners
         webEngine.getLoadWorker().progressProperty().addListener((obs, oldVal, newVal) -> {
             loadProgress = newVal.doubleValue();
         });
 
-        // Listen for changes in loading state
         webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
             isLoading = newState == Worker.State.RUNNING;
         });
 
-        // Listen for URL changes
         webEngine.locationProperty().addListener((obs, oldVal, newVal) -> {
             currentUrl = newVal;
         });
 
-        // Listen for page title updates
         webEngine.titleProperty().addListener((obs, oldVal, newVal) -> {
             System.out.println("Page Title Changed: " + newVal);
         });
 
-        // Listen for errors
         webEngine.getLoadWorker().exceptionProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 System.err.println("Error loading page: " + newVal.getMessage());
             }
         });
 
-        fetchTrackingUrlsFromEasyList();
         applyDefaultSettings();
-    }
-
-    private void fetchTrackingUrlsFromEasyList() {
-        String easyListUrl = "https://easylist.to/easylist/easyprivacy.txt";
-
-        try {
-            URL url = new URL(easyListUrl);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(5000);
-            connection.setReadTimeout(5000);
-            BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-            String inputLine;
-            while ((inputLine = in.readLine()) != null) {
-                if (!inputLine.startsWith("!") && !inputLine.isEmpty()) {
-                    String domainPattern = "(?<=//)([a-zA-Z0-9.-]+)";
-                    Pattern pattern = Pattern.compile(domainPattern);
-                    Matcher matcher = pattern.matcher(inputLine);
-                    while (matcher.find()) {
-                        String domain = matcher.group(1);
-                        blockedTrackingUrls.add(domain);
-                    }
-                }
-            }
-            in.close();
-            System.out.println("Successfully fetched and parsed tracking URLs from EasyList.");
-        } catch (IOException e) {
-            System.out.println("Error fetching EasyList: " + e.getMessage());
-        }
     }
 
     public void setUserAgent(String userAgent) {
@@ -134,50 +132,6 @@ public class BrowserEngine {
             System.out.println("Cookies disabled.");
             java.net.CookieHandler.setDefault(null);
         }
-    }
-
-    public void setTrackingProtectionEnabled(boolean enabled) {
-        trackingProtectionEnabled = enabled;
-        if (enabled) {
-            webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
-                if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
-                    blockTrackingScripts(webEngine.getLocation());
-                }
-            });
-            System.out.println("Tracking Protection enabled.");
-        } else {
-            System.out.println("Tracking Protection disabled.");
-        }
-    }
-
-    private void blockTrackingScripts(String currentUrl) {
-        if (currentUrl.startsWith("file://")) {
-            System.out.println("Ignoring local file: " + currentUrl);
-            return;
-        }
-
-        for (String blockedUrl : blockedTrackingUrls) {
-            if (currentUrl.contains(blockedUrl)) {
-                System.out.println("Blocking tracking script from: " + currentUrl);
-                webEngine.executeScript("document.write('This content is blocked due to tracking protection')");
-                return;
-            }
-        }
-    }
-
-    public void filterRequests(String requestUrl) {
-        if (trackingProtectionEnabled && isTrackingUrl(requestUrl)) {
-            System.out.println("Blocking request to tracking URL: " + requestUrl);
-        }
-    }
-
-    private boolean isTrackingUrl(String url) {
-        for (String blockedUrl : blockedTrackingUrls) {
-            if (url.contains(blockedUrl)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public void setCustomCookies(URI uri, List<String> cookies) {
@@ -216,25 +170,53 @@ public class BrowserEngine {
     private void applyDefaultSettings() {
         setJavaScriptEnabled(true);
         setCookiesEnabled(true);
-        setTrackingProtectionEnabled(false);
         setTheme("dark");
         setFontSize("medium");
     }
 
+
     public void loadPage(String url) {
         try {
+            if (!securityUtils.isSecureUrl(url) && !isLocalHtml(url)) {
+                System.err.println("Insecure URL: " + url);
+                return;
+            }
+
             if (url.startsWith("http://") || url.startsWith("https://")) {
                 String encryptedUrl = encryptionUtils.encrypt(url);
                 webEngine.load(url);
+                webEngine.getLoadWorker().stateProperty().addListener((observable, oldState, newState) -> {
+                    if (newState == Worker.State.SUCCEEDED) {
+                        adBlocker.blockAdsWithJS();
+                    }
+                });
             } else {
-                loadLocalHtml(url);
+                File localFile = new File(url);
+                if (localFile.exists() || new File(System.getProperty("user.dir"), url).exists()) {
+                    loadLocalHtml(url);
+                } else {
+                    System.err.println("Invalid URL: " + url);
+                }
             }
 
             webHistory.push(url);
+
         } catch (Exception e) {
             System.err.println("Error loading page: " + e.getMessage());
         }
     }
+
+    private boolean isLocalHtml(String url) {
+        // Check if the URL is a local file (starts with "file://" or a relative path)
+        if (url.startsWith("file://")) {
+            return new File(url.substring(7)).exists(); // Check for file:// URLs
+        } else {
+            // Check for relative paths or absolute file paths
+            File localFile = new File(url);
+            return localFile.exists() || new File(System.getProperty("user.dir"), url).exists(); // Check for relative file paths
+        }
+    }
+
 
     private void loadLocalHtml(String fileName) {
         try {

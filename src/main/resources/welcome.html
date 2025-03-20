@@ -5,8 +5,119 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Welcome to Link 2.0 Alpha</title>
-    <link rel="stylesheet" href="style.css">
+
+    <!-- External Reset CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/meyer-reset/2.0/reset.min.css">
+
+    <!-- Google Font -->
+    <style>
+        @import url(https://fonts.googleapis.com/css?family=Exo:100);
+    </style>
+
+    <!-- Background Animation and Styling -->
+    <style>
+        @keyframes bg-scrolling-reverse {
+            100% {
+                background-position: 50px 50px;
+            }
+        }
+
+        @keyframes bg-scrolling {
+            0% {
+                background-position: 50px 50px;
+            }
+        }
+
+        body {
+            margin-top: 5rem;
+            color: #f0f0f0;
+            font: 400 16px/1.5 exo, ubuntu, "segoe ui", helvetica, arial, sans-serif;
+            text-align: center;
+            background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAIAAACRXR/mAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAIGNIUk0AAHolAACAgwAA+f8AAIDpAAB1MAAA6mAAADqYAAAXb5JfxUYAAABnSURBVHja7M5RDYAwDEXRDgmvEocnlrQS2SwUFST9uEfBGWs9c97nbGtDcquqiKhOImLs/UpuzVzWEi1atGjRokWLFi1atGjRokWLFi1atGjRokWLFi1af7Ukz8xWp8z8AAAA//8DAJ4LoEAAlL1nAAAAAElFTkSuQmCC") repeat 0 0;
+            -webkit-animation: bg-scrolling-reverse 0.92s infinite;
+            -moz-animation: bg-scrolling-reverse 0.92s infinite;
+            -o-animation: bg-scrolling-reverse 0.92s infinite;
+            animation: bg-scrolling-reverse 0.92s infinite;
+            animation-timing-function: linear;
+        }
+
+        body::before {
+            content: "Link";
+            font-size: 3rem;
+            font-weight: 100;
+            font-style: normal;
+            color: #fff;
+            display: block;
+            margin-top: 2rem;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 8px;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #ffcc00;
+        }
+
+        .intro {
+            font-size: 1.1rem;
+            color: #fff;
+            margin-bottom: 2rem;
+        }
+
+        section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+        }
+
+        section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            color: #ffcc00;
+        }
+
+        section p {
+            font-size: 1.1rem;
+            color: #ddd;
+        }
+
+        footer {
+            font-size: 0.9rem;
+            color: #ddd;
+            margin-top: 3rem;
+        }
+
+        footer a {
+            color: #ffcc00;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        #internet-status {
+            font-weight: bold;
+        }
+    </style>
+
+    <!-- External Link for Credits -->
+    <style>
+        a {
+            font-size: 8pt;
+            text-decoration: none;
+        }
+    </style>
 </head>
+
 <body>
 <div class="container">
     <header>

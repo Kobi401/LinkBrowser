@@ -10,8 +10,9 @@ module com.kobi401.browser {
     requires org.kordamp.bootstrapfx.core;
     requires eu.hansolo.tilesfx;
     requires com.almasb.fxgl.all;
-    requires java.management;
     requires jdk.jsobject;
+    requires java.logging;
+    requires jdk.management;
 
     opens com.kobi401.browser to javafx.fxml;
     exports com.kobi401.browser;
