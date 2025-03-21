@@ -1,9 +1,12 @@
 package com.kobi401.browser.engine;
 
+import com.kobi401.browser.Launch;
+import com.kobi401.browser.devtools.InspectElementTool;
 import com.kobi401.browser.encryption.EncryptionUtils;
 import com.kobi401.browser.jsbridge.JavaScriptBridge;
 import com.kobi401.browser.security.AdBlocker;
 import com.kobi401.browser.security.SecurityUtils;
+import com.kobi401.browser.ui.BrowserUI;
 import javafx.beans.value.ChangeListener;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
@@ -18,10 +21,7 @@ import java.net.CookieManager;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.Stack;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -41,6 +41,8 @@ public class BrowserEngine {
     private AdBlocker adBlocker;
 
     private static BrowserEngine instance;
+    private InspectElementTool inspectElementTool;
+    private Launch launch;
 
     public static BrowserEngine getInstance() {
         if (instance == null) {
@@ -74,20 +76,8 @@ public class BrowserEngine {
         }
         webView.getEngine().setUserDataDirectory(userDataDirectory);
 
-        // Initialize JavaScript bridge once
-        JSObject jsBridge = (JSObject) webEngine.executeScript("window");
-        JavaScriptBridge.getInstance().setJsBridge(jsBridge);
+        initializeJavaScriptBridge();
 
-        if (JavaScriptBridge.getInstance().isInitialized()) {
-            logger.info("Successfully initialized JavaScriptBridge.");
-        } else {
-            logger.severe("Failed to initialize JavaScriptBridge.");
-        }
-
-        // Set Java bridge object
-        jsBridge.setMember("java", this);
-
-        // Initialize AdBlocker only once
         if (this.adBlocker == null) {
             this.adBlocker = new AdBlocker();
         }
@@ -120,6 +110,21 @@ public class BrowserEngine {
         applyDefaultSettings();
     }
 
+    private void initializeJavaScriptBridge() {
+        webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
+            if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
+                try {
+                    JSObject jsBridge = (JSObject) webEngine.executeScript("window");
+                    jsBridge.setMember("java", this);
+                    jsBridge.setMember("javaInspectorBridge", inspectElementTool);
+                    logger.info("JavaScript bridge initialized successfully.");
+                } catch (Exception e) {
+                    logger.severe("Failed to initialize JavaScript bridge: " + e.getMessage());
+                }
+            }
+        });
+    }
+
     public void setUserAgent(String userAgent) {
         webEngine.setUserAgent(userAgent);
     }
@@ -138,16 +143,6 @@ public class BrowserEngine {
         cookies.forEach(cookie -> {
             System.out.println("Setting cookie for " + uri + ": " + cookie);
         });
-    }
-
-    public void setTheme(String theme) {
-        if ("dark".equalsIgnoreCase(theme)) {
-            webEngine.executeScript("document.body.style.backgroundColor = '#121212';");
-            webEngine.executeScript("document.body.style.color = '#ffffff';");
-        } else {
-            webEngine.executeScript("document.body.style.backgroundColor = '#ffffff';");
-            webEngine.executeScript("document.body.style.color = '#000000';");
-        }
     }
 
     public void setFontSize(String fontSize) {
@@ -170,7 +165,6 @@ public class BrowserEngine {
     private void applyDefaultSettings() {
         setJavaScriptEnabled(true);
         setCookiesEnabled(true);
-        setTheme("dark");
         setFontSize("medium");
     }
 

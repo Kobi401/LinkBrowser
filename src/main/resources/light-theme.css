@@ -1,0 +1,19 @@
+/* Light Theme Styles */
+.root {
+    -fx-background-color: white;
+    -fx-text-fill: black;
+}
+
+.menu-bar {
+    -fx-background-color: #f0f0f0;
+}
+
+.button {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: black;
+    -fx-border-color: #e0e0e0;
+}
+
+.label {
+    -fx-text-fill: black;
+}

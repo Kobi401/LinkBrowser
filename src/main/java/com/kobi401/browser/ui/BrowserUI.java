@@ -13,6 +13,8 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
@@ -32,7 +34,8 @@ import java.lang.management.ManagementFactory;
 public class BrowserUI {
     private BorderPane root;
     private TabPane tabPane;
-    private MenuBar menuBar;
+    private BrowserMenuBar menuBar;
+    private BrowserNavigationBar navigationBar;
     private StatusBar statusBar;
     private ProgressBar progressBar;
     private Label statusLabel;
@@ -47,80 +50,18 @@ public class BrowserUI {
     public BrowserUI() {
         root = new BorderPane();
         tabPane = new TabPane();
-        menuBar = createMenuBar();
-        HBox navigationBar = createNavigationBar();
+        menuBar = new BrowserMenuBar(this);
+        navigationBar = new BrowserNavigationBar(this);
         statusBar = createStatusBar();
 
-        root.setTop(new VBox(menuBar, navigationBar));
+        root.setTop(new VBox(menuBar.getMenuBar(), navigationBar.getNavigationBar()));
         root.setCenter(tabPane);
         root.setBottom(statusBar);
 
         createNewTab("welcome.html");
     }
 
-    private MenuBar createMenuBar() {
-        Menu fileMenu = new Menu("File");
-        MenuItem newTab = new MenuItem("New Tab");
-        MenuItem exit = new MenuItem("Exit");
-        newTab.setOnAction(e -> createNewTab("https://www.google.com"));
-        exit.setOnAction(e -> System.exit(0));
-        fileMenu.getItems().addAll(newTab, exit);
-
-        Menu navigationMenu = new Menu("Navigation");
-        MenuItem back = new MenuItem("← Back");
-        MenuItem forward = new MenuItem("→ Forward");
-        MenuItem refresh = new MenuItem("⟳ Refresh");
-        MenuItem goToURL = new MenuItem("Go to URL");
-
-        back.setOnAction(e -> getCurrentWebView().getEngine().executeScript("history.back()"));
-        forward.setOnAction(e -> getCurrentWebView().getEngine().executeScript("history.forward()"));
-        refresh.setOnAction(e -> getCurrentWebView().getEngine().reload());
-       // goToURL.setOnAction(e -> loadURL(urlField.getText()));
-
-        navigationMenu.getItems().addAll(back, forward, refresh, goToURL);
-
-        Menu helpMenu = new Menu("Help");
-        MenuItem about = new MenuItem("About");
-        about.setOnAction(e -> showAboutWindow());
-        helpMenu.getItems().add(about);
-
-        return new MenuBar(fileMenu, navigationMenu, helpMenu);
-    }
-
-    private HBox createNavigationBar() {
-        urlField = new CustomTextField();
-        urlField.setPromptText("Enter URL...");
-        goButton = new Button("Go");
-        backButton = new Button("←");
-        forwardButton = new Button("→");
-        refreshButton = new Button("⟳");
-        newTabButton = new Button("+");
-        settingsButton = new Button("⚙");
-        downloadsButton = new Button("↓");
-
-        downloadsManager = new DownloadsManager();
-
-        goButton.setOnAction(e -> browserEngine.loadPage(String.valueOf(urlField)));
-        backButton.setOnAction(e -> getCurrentWebView().getEngine().executeScript("history.back()"));
-        forwardButton.setOnAction(e -> getCurrentWebView().getEngine().executeScript("history.forward()"));
-        refreshButton.setOnAction(e -> getCurrentWebView().getEngine().reload());
-        newTabButton.setOnAction(e -> createNewTab("https://www.google.com"));
-
-        settingsButton.setOnAction(e -> openSettingsPage(BrowserEngine.getInstance()));
-
-        downloadsButton.setOnAction(e -> showNotificationInBrowser("Error", "Downloads isn't supported yet!"));
-
-        bookmarksBar = new BookmarksBar();
-        bookmarksBar.addBookmark("Google", "https://www.google.com", getCurrentWebView().getEngine(), BrowserEngine.getWebView());
-        bookmarksBar.addBookmark("YouTube", "https://www.youtube.com", getCurrentWebView().getEngine(), BrowserEngine.getWebView());
-        bookmarksBar.addBookmark("GitHub", "https://github.com", getCurrentWebView().getEngine(), BrowserEngine.getWebView());
-
-        HBox navigationContainer = new HBox(backButton, forwardButton, refreshButton, urlField, goButton, newTabButton, bookmarksBar.getBookmarksContainer(), settingsButton, downloadsButton);
-        navigationContainer.setSpacing(5);
-        return navigationContainer;
-    }
-
-    private void openSettingsPage(BrowserEngine browserEngine) {
+    public void openSettingsPage(BrowserEngine browserEngine) {
         Platform.runLater(() -> {
             Stage settingsStage = new Stage();
             settingsStage.setTitle("Settings");
@@ -135,47 +76,30 @@ public class BrowserUI {
             Label titleLabel = new Label("Link Settings");
             titleLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
-            // Debug Mode Toggle
             CheckBox debugModeCheckbox = new CheckBox("Enable Debug Mode");
             debugModeCheckbox.setSelected(Boolean.parseBoolean(System.getProperty("debug.mode", "false")));
 
-            // Theme Selection
             ChoiceBox<String> themeChoiceBox = new ChoiceBox<>();
             themeChoiceBox.getItems().addAll("Light", "Dark", "System Default");
             themeChoiceBox.setValue(System.getProperty("browser.theme", "Light")); // Load saved theme
 
-            // Font Size Selection
             ChoiceBox<String> fontSizeChoiceBox = new ChoiceBox<>();
             fontSizeChoiceBox.getItems().addAll("Small", "Medium", "Large");
             fontSizeChoiceBox.setValue(System.getProperty("browser.fontSize", "Medium")); // Load saved font size
 
-            // Cookies Toggle
             CheckBox cookiesCheckbox = new CheckBox("Enable Cookies");
             cookiesCheckbox.setSelected(Boolean.parseBoolean(System.getProperty("browser.cookies", "true")));
 
-            // Apply Button
             Button applyButton = new Button("Apply");
             applyButton.setOnAction(e -> {
-                // Apply Debug Mode
                 System.setProperty("debug.mode", String.valueOf(debugModeCheckbox.isSelected()));
-
-                // Apply Theme
-                String selectedTheme = themeChoiceBox.getValue().toLowerCase();
-                browserEngine.setTheme(selectedTheme);
-                System.setProperty("browser.theme", selectedTheme);
-
-                // Apply Font Size
                 String selectedFontSize = fontSizeChoiceBox.getValue().toLowerCase();
                 browserEngine.setFontSize(selectedFontSize);
                 System.setProperty("browser.fontSize", selectedFontSize);
-
-                // Apply Cookies
                 boolean cookiesEnabled = cookiesCheckbox.isSelected();
                 browserEngine.setCookiesEnabled(cookiesEnabled);
                 System.setProperty("browser.cookies", String.valueOf(cookiesEnabled));
-
                 System.out.println("Settings applied: Debug Mode = " + debugModeCheckbox.isSelected() +
-                        ", Theme = " + selectedTheme +
                         ", Font Size = " + selectedFontSize +
                         ", Cookies = " + cookiesEnabled);
 
@@ -185,7 +109,6 @@ public class BrowserUI {
             settingsLayout.getChildren().addAll(
                     titleLabel,
                     debugModeCheckbox,
-                    new Label("Theme:"), themeChoiceBox,
                     new Label("Font Size:"), fontSizeChoiceBox,
                     cookiesCheckbox,
                     applyButton
@@ -277,10 +200,8 @@ public class BrowserUI {
         }).start();
     }
 
-    private void createNewTab(String url) {
+    public void createNewTab(String url) {
         Tab tab = new Tab("New Tab");
-
-        // Create a new instance of BrowserEngine for this tab
         browserEngine = new BrowserEngine();
         WebView webView = browserEngine.getWebView();
         browserEngine.loadPage(url);
@@ -290,12 +211,10 @@ public class BrowserUI {
 
         WebEngine webEngine = browserEngine.getWebEngine();
 
-        // Update progress bar for this tab
         webEngine.getLoadWorker().progressProperty().addListener((obs, oldVal, newVal) -> {
             progressBar.setProgress(newVal.doubleValue());
         });
 
-        // Memory monitoring
         TabMemoryManager tabMemoryManager = new TabMemoryManager(tab);
         Tooltip memoryTooltip = new Tooltip("Loading memory usage...");
         tab.setTooltip(memoryTooltip);
@@ -312,7 +231,7 @@ public class BrowserUI {
             if (newState == Worker.State.RUNNING) {
                 statusLabel.setText("Loading...");
             } else if (newState == Worker.State.SUCCEEDED) {
-                statusLabel.setText("Done: " + shortenUrl(webEngine.getLocation())); // Show shortened URL in status bar
+                statusLabel.setText("Done: " + shortenUrl(webEngine.getLocation()));
                 tab.setText(browserEngine.getPageTitle());
             } else if (newState == Worker.State.FAILED) {
                 statusLabel.setText("Failed to load: " + shortenUrl(webEngine.getLocation()));
@@ -334,7 +253,7 @@ public class BrowserUI {
      */
     private String shortenUrl(String url) {
         if (url.length() > 40) {
-            return url.substring(0, 37) + "..."; // Show only first 37 characters, add "..."
+            return url.substring(0, 37) + "...";
         }
         return url;
     }
@@ -345,7 +264,7 @@ public class BrowserUI {
         tooltip.setText("Memory Usage: " + tabMemoryManager.getFormattedMemoryUsage());
     }
 
-    private WebView getCurrentWebView() {
+    public WebView getCurrentWebView() {
         Tab selectedTab = tabPane.getSelectionModel().getSelectedItem();
         if (selectedTab != null && selectedTab.getContent() instanceof WebView) {
             return (WebView) selectedTab.getContent();
@@ -353,49 +272,78 @@ public class BrowserUI {
         return new WebView();
     }
 
-    //TODO redo this
     public void showAboutWindow() {
         Stage aboutStage = new Stage();
         aboutStage.initModality(Modality.APPLICATION_MODAL);
         aboutStage.setTitle("About Link Browser");
+        VBox mainLayout = new VBox(15);
+        mainLayout.setPadding(new Insets(20));
+        mainLayout.setAlignment(Pos.TOP_CENTER);
+        mainLayout.setStyle("-fx-background-color: #252525;");
+        ImageView logoView = new ImageView(new Image("file:Images/LinkLogo_Big.png"));
+        logoView.setFitWidth(80);
+        logoView.setFitHeight(80);
+        Label browserName = new Label("Link Browser");
+        browserName.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: white;");
+        Label versionLabel = new Label("Version: 2.1.0  |  Build: 2025.03.20  |  License: MIT");
+        versionLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #BBBBBB;");
+        VBox headerBox = new VBox(logoView, browserName, versionLabel);
+        headerBox.setAlignment(Pos.CENTER);
+        headerBox.setSpacing(5);
 
-        // Browser Info Tile (Centered with bigger text)
-        Tile browserInfoTile = TileBuilder.create()
-                .skinType(Tile.SkinType.TEXT)
-                .title("Link Browser")
-                .text("Version: 2.1.0\nBuild: 2025.03.20\nLicense: MIT")
-                .textSize(Tile.TextSize.BIGGER)
-                .description("Modern web browsing experience.")
-                .build();
+        String sectionStyle = "-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: white;";
+        String contentStyle = "-fx-font-size: 14px; -fx-text-fill: #BBBBBB;";
 
-        // Dependencies Tile (Well-formatted text)
-        Tile dependenciesTile = TileBuilder.create()
-                .skinType(Tile.SkinType.TEXT)
-                .title("Dependencies Used")
-                .text("• JavaFX\n• ControlsFX\n• FXGL")
-                .textSize(Tile.TextSize.BIGGER)
-                .description("Frameworks and libraries used in development.")
-                .build();
+        Label developerTitle = new Label("Developer:");
+        developerTitle.setStyle(sectionStyle);
 
-        // Acknowledgements Tile (Bigger text for better readability)
-        Tile acknowledgementsTile = TileBuilder.create()
-                .skinType(Tile.SkinType.TEXT)
-                .title("Acknowledgements")
-                .text("Thanks to the JavaFX, ControlsFX, and FXGL communities!")
-                .textSize(Tile.TextSize.BIGGER)
-                .description("Community contributions that made this possible.")
-                .build();
+        Label developerContent = new Label("Kobi401");
+        developerContent.setStyle(contentStyle);
 
-        // GitHub Link Tile (Clickable-looking text)
-        Tile githubTile = TileBuilder.create()
-                .skinType(Tile.SkinType.TEXT)
-                .title("GitHub Repository")
-                .text("Visit:\nhttps://github.com/YourRepository")
-                .textSize(Tile.TextSize.BIGGER)
-                .description("Open-source contributions & project updates.")
-                .build();
+        VBox developerBox = new VBox(developerTitle, developerContent);
+        developerBox.setSpacing(5);
+        developerBox.setAlignment(Pos.CENTER_LEFT);
 
-        // CPU Usage Gauge
+        Label dependenciesTitle = new Label("Dependencies Used:");
+        dependenciesTitle.setStyle(sectionStyle);
+
+        Label dependenciesContent = new Label("• JavaFX\n• ControlsFX\n• TilesFX\n• FXGL");
+        dependenciesContent.setStyle(contentStyle);
+
+        VBox dependenciesBox = new VBox(dependenciesTitle, dependenciesContent);
+        dependenciesBox.setSpacing(5);
+        dependenciesBox.setAlignment(Pos.CENTER_LEFT);
+
+        Label fxglTitle = new Label("FXGL Framework:");
+        fxglTitle.setStyle(sectionStyle);
+
+        Label fxglContent = new Label("Powered by FXGL for advanced graphics & game development.");
+        fxglContent.setStyle(contentStyle);
+
+        VBox fxglBox = new VBox(fxglTitle, fxglContent);
+        fxglBox.setSpacing(5);
+        fxglBox.setAlignment(Pos.CENTER_LEFT);
+
+        Label acknowledgementsTitle = new Label("Acknowledgements:");
+        acknowledgementsTitle.setStyle(sectionStyle);
+
+        Label acknowledgementsContent = new Label("Special thanks to the JavaFX, ControlsFX, TilesFX, and FXGL communities!");
+        acknowledgementsContent.setStyle(contentStyle);
+
+        VBox acknowledgementsBox = new VBox(acknowledgementsTitle, acknowledgementsContent);
+        acknowledgementsBox.setSpacing(5);
+        acknowledgementsBox.setAlignment(Pos.CENTER_LEFT);
+
+        Label githubTitle = new Label("GitHub Repository:");
+        githubTitle.setStyle(sectionStyle);
+
+        Hyperlink githubLink = new Hyperlink("https://github.com/Kobi401/LinkBrowser");
+        githubLink.setStyle("-fx-font-size: 14px; -fx-text-fill: #1E90FF;");
+
+        VBox githubBox = new VBox(githubTitle, githubLink);
+        githubBox.setSpacing(5);
+        githubBox.setAlignment(Pos.CENTER_LEFT);
+
         Tile cpuTile = TileBuilder.create()
                 .skinType(Tile.SkinType.GAUGE)
                 .title("CPU Usage")
@@ -405,7 +353,6 @@ public class BrowserUI {
                 .textSize(Tile.TextSize.BIGGER)
                 .build();
 
-        // Memory Usage Gauge
         Tile memoryTile = TileBuilder.create()
                 .skinType(Tile.SkinType.GAUGE)
                 .title("Memory Usage")
@@ -415,10 +362,12 @@ public class BrowserUI {
                 .textSize(Tile.TextSize.BIGGER)
                 .build();
 
-        // Timeline to update CPU and Memory gauges every 500ms
+        HBox systemStatsBox = new HBox(20, cpuTile, memoryTile);
+        systemStatsBox.setAlignment(Pos.CENTER);
+
         Timeline timeline = new Timeline(new KeyFrame(Duration.millis(500), e -> {
             OperatingSystemMXBean osBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
-            double cpuLoad = osBean.getProcessCpuLoad() * 100; // Get CPU usage as a percentage
+            double cpuLoad = osBean.getProcessCpuLoad() * 100;
             double memoryUsage = ((double) (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / Runtime.getRuntime().maxMemory()) * 100;
 
             Platform.runLater(() -> {
@@ -429,19 +378,16 @@ public class BrowserUI {
         timeline.setCycleCount(Timeline.INDEFINITE);
         timeline.play();
 
-        // Close Button
         Button closeButton = new Button("Close");
-        closeButton.setStyle("-fx-font-size: 14px; -fx-padding: 8px 20px;");
+        closeButton.setStyle("-fx-font-size: 14px; -fx-padding: 8px 20px; -fx-background-color: #FF5555; -fx-text-fill: white;");
         closeButton.setOnAction(e -> {
-            timeline.stop(); // Stop updates when closing the window
+            timeline.stop();
             aboutStage.close();
         });
 
-        VBox layout = new VBox(15, browserInfoTile, dependenciesTile, acknowledgementsTile, githubTile, cpuTile, memoryTile, closeButton);
-        layout.setAlignment(Pos.CENTER);
-        layout.setStyle("-fx-background-color: #1e1e1e; -fx-padding: 20;");
+        mainLayout.getChildren().addAll(headerBox, developerBox, dependenciesBox, fxglBox, acknowledgementsBox, githubBox, systemStatsBox, closeButton);
 
-        Scene scene = new Scene(layout, 500, 750);
+        Scene scene = new Scene(mainLayout, 500, 750);
         aboutStage.setScene(scene);
         aboutStage.showAndWait();
     }

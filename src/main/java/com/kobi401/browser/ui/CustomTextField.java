@@ -23,8 +23,6 @@ public class CustomTextField extends TextField {
         historyManager = new BrowserHistoryManager();
         suggestionList = new ListView<>();
         suggestionPopup = new Popup();
-
-        // Predefined popular websites
         basicSuggestions = List.of(
                 "https://www.google.com",
                 "https://www.mozilla.org/firefox/",
@@ -38,15 +36,10 @@ public class CustomTextField extends TextField {
         );
 
         suggestionPopup.getContent().add(suggestionList);
-        suggestionPopup.setAutoHide(true); // Hide when clicking elsewhere
-
-        // Clicking on a suggestion fills the text field
+        suggestionPopup.setAutoHide(true);
         suggestionList.setOnMouseClicked(event -> selectSuggestion());
-
-        // Handle text changes to update suggestions
         this.textProperty().addListener((observable, oldValue, newValue) -> updateSuggestions(newValue));
 
-        // Handle keyboard interactions
         this.setOnKeyPressed(event -> handleKeyPress(event));
     }
 
@@ -58,10 +51,9 @@ public class CustomTextField extends TextField {
 
         if (!query.isEmpty()) {
             List<String> filteredHistory = filterHistory(query);
-            filteredSuggestions.addAll(0, filteredHistory); // History first
+            filteredSuggestions.addAll(0, filteredHistory);
         }
 
-        // Show suggestions if available
         if (!filteredSuggestions.isEmpty()) {
             suggestionList.getItems().setAll(filteredSuggestions);
             showSuggestionPopup();

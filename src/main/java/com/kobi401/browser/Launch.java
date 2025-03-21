@@ -5,11 +5,18 @@ import com.almasb.fxgl.app.GameSettings;
 import com.almasb.fxgl.dsl.FXGL;
 import com.kobi401.browser.ui.BrowserUI;
 import com.kobi401.browser.ui.SplashScreen;
+import com.kobi401.browser.ui.ThemeManager;
 import javafx.application.Platform;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.layout.Region;
 import javafx.util.Duration;
 
+// Since Link uses FXGL now for the engine it should allow running on anything with a screen!
+
 public class Launch extends GameApplication {
+
+    private BrowserUI browserUI;
 
     @Override
     protected void initSettings(GameSettings settings) {
@@ -58,12 +65,20 @@ public class Launch extends GameApplication {
     }
 
     private void showMainStage() {
-        BrowserUI browserUI = new BrowserUI();
+        browserUI = new BrowserUI();
         Scene scene = new Scene(browserUI.getRoot(), 800, 600);
+
+        //Region someComponent = new Button("Some Button"); // Example component
+        //ThemeManager.toggleTheme(scene, someComponent);
+
         Platform.runLater(() -> {
             FXGL.getPrimaryStage().setScene(scene);
             FXGL.getPrimaryStage().show();
         });
+    }
+
+    public BrowserUI getbrowserUI() {
+        return browserUI;
     }
 
     public static void main(String[] args) {

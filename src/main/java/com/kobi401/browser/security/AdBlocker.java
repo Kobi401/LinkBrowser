@@ -15,7 +15,7 @@ public class AdBlocker {
     private static final Logger logger = Logger.getLogger(AdBlocker.class.getName());
     private static final Set<String> blockedUrls = new HashSet<>();
     private static final String EASYLIST_URL = "https://easylist.to/easylist/easylist.txt";
-   // private JSObject jsBridge;  // JavaScript bridge to inject JS into the browser engine
+   // private JSObject jsBridge;
 
     public AdBlocker() {
         try {
@@ -47,18 +47,17 @@ public class AdBlocker {
             Matcher matcher = pattern.matcher(inputLine);
             while (matcher.find()) {
                 String domain = matcher.group(1);
-                blockedUrls.add(domain); // Add the domain to blocked URLs set
+                blockedUrls.add(domain);
             }
         }
         in.close();
         logger.info("Successfully fetched and parsed EasyList.");
     }
 
-    // Check if the URL should be blocked based on EasyList
     public boolean isAdUrl(String url) {
         for (String blockedUrl : blockedUrls) {
             if (url.contains(blockedUrl)) {
-                return true; // Block the URL if it contains a blocked domain
+                return true;
             }
         }
         return false; // Not blocked
@@ -79,7 +78,6 @@ public class AdBlocker {
         }
     }
 
-    // Example usage: Inject JS to block ad scripts or modify the DOM
     public void blockAdsWithJS() {
         String adBlockerScript =
                 "(function() { " +
@@ -102,27 +100,23 @@ public class AdBlocker {
                         "   observer.observe(document.body, { childList: true, subtree: true }); " +
                         "})();";
 
-        injectJavaScript(adBlockerScript);  // Inject the enhanced ad-blocking script
+        injectJavaScript(adBlockerScript);
     }
 
-    // Method to block ads by URL (checks if a URL should be blocked and then injects JS to remove ad elements)
     public void blockAdsByUrl(String url) {
         if (isAdUrl(url)) {
-            blockAdsWithJS();  // Block the ads if the URL is recognized as an ad source
+            blockAdsWithJS();
         }
     }
 
-    // Getter for the blocked URLs for external use
     public Set<String> getBlockedUrls() {
         return blockedUrls;
     }
 
-    // Method to clear the blocked URLs (for example, when refreshing the list)
     public void clearBlockedUrls() {
         blockedUrls.clear();
     }
 
-    // Method to refresh the EasyList (useful for periodic updates)
     public void refreshEasyList() {
         try {
             blockedUrls.clear();

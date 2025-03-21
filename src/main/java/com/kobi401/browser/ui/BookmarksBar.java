@@ -5,50 +5,69 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.web.WebEngine;
-import javafx.scene.web.WebView;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 
 public class BookmarksBar {
     private final HBox bookmarksContainer;
-    private final List<Bookmark> bookmarks;
-    private final List<WebEngine> tabEngines;
+    private final Map<String, Bookmark> bookmarks; // Stores title → Bookmark
+    private final WebEngine webEngine;
 
-    public BookmarksBar() {
-        bookmarksContainer = new HBox(5);
-        bookmarks = new ArrayList<>();
-        tabEngines = new ArrayList<>();
+    public BookmarksBar(WebEngine webEngine) {
+        this.bookmarksContainer = new HBox(5);
+        this.bookmarks = new LinkedHashMap<>();
+        this.webEngine = webEngine;
     }
 
-    public void addBookmark(String title, String url, WebEngine webEngine, WebView webView) {
-        Bookmark bookmark = new Bookmark(title, url);
-        bookmarks.add(bookmark);
-        Button bookmarkButton = new Button(title);
-        bookmarkButton.setGraphic(new ImageView(loadFavicon(url)));
-        bookmarkButton.setOnAction(e -> openInNewTab(url, webEngine, webView));
+    public void addBookmark(String title, String url) {
+        if (!bookmarks.containsKey(title)) {
+            Bookmark bookmark = new Bookmark(title, url);
+            bookmarks.put(title, bookmark);
+            Button bookmarkButton = createBookmarkButton(bookmark);
+            bookmarksContainer.getChildren().add(bookmarkButton);
+        }
+    }
+
+    private Button createBookmarkButton(Bookmark bookmark) {
+        Button bookmarkButton = new Button(bookmark.getTitle());
+        bookmarkButton.setGraphic(new ImageView(loadFavicon(bookmark.getUrl())));
+        bookmarkButton.setOnAction(e -> openBookmark(bookmark));
         bookmarkButton.setStyle("-fx-background-color: #f0f0f0; -fx-padding: 5; -fx-border-radius: 5;");
-        bookmarksContainer.getChildren().add(bookmarkButton);
+        return bookmarkButton;
     }
 
-    private void openInNewTab(String url, WebEngine currentWebEngine, WebView webView) {
-        WebView newTabWebView = new WebView();
-        WebEngine newTabEngine = newTabWebView.getEngine();
-        tabEngines.add(newTabEngine);
-        newTabEngine.load(url);
-        newTabEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
-            if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
-               //not done
-            }
-        });
+    public void openBookmark(Bookmark bookmark) {
+        webEngine.load(bookmark.getUrl());
+    }
 
-        currentWebEngine.load(url);
+    public void removeBookmark(String title) {
+        bookmarks.remove(title);
+        updateBookmarksContainer();
+    }
+
+    public List<String> getBookmarkTitles() {
+        return new ArrayList<>(bookmarks.keySet());
+    }
+
+    public String getBookmarkUrl(String title) {
+        Bookmark bookmark = bookmarks.get(title);
+        return bookmark != null ? bookmark.getUrl() : null;
+    }
+
+    private void updateBookmarksContainer() {
+        bookmarksContainer.getChildren().clear();
+        bookmarks.forEach((title, bookmark) -> {
+            Button bookmarkButton = createBookmarkButton(bookmark);
+            bookmarksContainer.getChildren().add(bookmarkButton);
+        });
     }
 
     private Image loadFavicon(String url) {
         try {
-            String faviconUrl = url + "/favicon.ico";
-            return new Image(faviconUrl, 16, 16, true, true);
+            return new Image(url + "/favicon.ico", 16, 16, true, true);
         } catch (Exception e) {
             return new Image(getClass().getResourceAsStream("/Images/default_favicon.png"), 16, 16, true, true);
         }
@@ -58,13 +77,21 @@ public class BookmarksBar {
         return bookmarksContainer;
     }
 
-    private static class Bookmark {
-        String title;
-        String url;
+    public static class Bookmark {
+        private final String title;
+        private final String url;
 
         public Bookmark(String title, String url) {
             this.title = title;
             this.url = url;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public String getUrl() {
+            return url;
         }
     }
 }
