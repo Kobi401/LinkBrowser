@@ -6,6 +6,7 @@ import com.kobi401.browser.download.DownloadTask;
 import com.kobi401.browser.engine.BrowserEngine;
 import com.kobi401.browser.download.DownloadsManager;
 import com.kobi401.browser.memory.TabMemoryManager;
+import com.kobi401.browser.utils.AppInfo;
 import com.sun.management.OperatingSystemMXBean;
 import eu.hansolo.tilesfx.TileBuilder;
 import javafx.animation.KeyFrame;
@@ -374,17 +375,24 @@ public class BrowserUI {
         Stage aboutStage = new Stage();
         aboutStage.initModality(Modality.APPLICATION_MODAL);
         aboutStage.setTitle("About Link Browser");
+
         VBox mainLayout = new VBox(15);
         mainLayout.setPadding(new Insets(20));
         mainLayout.setAlignment(Pos.TOP_CENTER);
         mainLayout.setStyle("-fx-background-color: #252525;");
+
+        AppInfo appInfo = AppInfo.createDefaultAppInfo();
+
         ImageView logoView = new ImageView(new Image("file:Images/LinkLogo_Big.png"));
         logoView.setFitWidth(80);
         logoView.setFitHeight(80);
+
         Label browserName = new Label("Link Browser");
         browserName.setStyle("-fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: white;");
-        Label versionLabel = new Label("Version: 2.1.0  |  Build: 2025.03.20  |  License: MIT");
+
+        Label versionLabel = new Label("Version: " + appInfo.getVersion() + "  |  Build: " + appInfo.getBuild() + "  |  License: MIT");
         versionLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #BBBBBB;");
+
         VBox headerBox = new VBox(logoView, browserName, versionLabel);
         headerBox.setAlignment(Pos.CENTER);
         headerBox.setSpacing(5);
