@@ -6,6 +6,7 @@ import com.almasb.fxgl.dsl.FXGL;
 import com.kobi401.browser.ui.BrowserUI;
 import com.kobi401.browser.ui.SplashScreen;
 import com.kobi401.browser.ui.ThemeManager;
+import com.kobi401.browser.utils.AppInfo;
 import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -20,8 +21,9 @@ public class Launch extends GameApplication {
 
     @Override
     protected void initSettings(GameSettings settings) {
+        AppInfo appInfo = AppInfo.createDefaultAppInfo();
         settings.setTitle("Link Browser");
-        settings.setVersion("2.1");
+        settings.setVersion(appInfo.getVersion());
         settings.setWidth(800);
         settings.setHeight(600);
         settings.setMainMenuEnabled(false);
@@ -67,10 +69,6 @@ public class Launch extends GameApplication {
     private void showMainStage() {
         browserUI = new BrowserUI();
         Scene scene = new Scene(browserUI.getRoot(), 800, 600);
-
-        //Region someComponent = new Button("Some Button"); // Example component
-        //ThemeManager.toggleTheme(scene, someComponent);
-
         Platform.runLater(() -> {
             FXGL.getPrimaryStage().setScene(scene);
             FXGL.getPrimaryStage().show();

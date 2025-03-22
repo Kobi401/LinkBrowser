@@ -121,8 +121,8 @@
 <body>
 <div class="container">
     <header>
-        <h1>Welcome to <span class="highlight">Link 2.0 Alpha</span></h1>
-        <p class="intro">The ultra-basic Welcome page for Link 2.0 by Kobi401!</p>
+        <h1>Welcome to <span class="highlight">Link</span></h1>
+        <p class="intro">The ultra-basic Welcome page for Link by Kobi401!</p>
     </header>
 
     <section>
@@ -134,7 +134,7 @@
 
     <section>
         <h2>Current Build</h2>
-        <p><strong>Build Version:</strong> 2.1.0</p>
+        <p><strong>Build Version:</strong> 2.1.1</p>
         <p><strong>Status:</strong> Alpha</p>
     </section>
 
@@ -169,7 +169,6 @@
 </div>
 
 <script>
-    // Check if internet is available
     function checkInternetStatus() {
         const statusElement = document.getElementById("internet-status");
 
@@ -184,22 +183,15 @@
             });
     }
 
-    // Get real system information
     function getSystemInfo() {
-        // Detect OS name and architecture
         const osName = navigator.platform;
         const architecture = (navigator.hardwareConcurrency > 1) ? "x64" : "x32";
-
-        // Detect User-Agent
         const userAgent = navigator.userAgent;
-
-        // Update the HTML with the system info
         document.getElementById('os-name').textContent = osName;
         document.getElementById('os-architecture').textContent = architecture;
         document.getElementById('user-agent').textContent = userAgent;
     }
 
-    // Execute when page loads
     window.onload = function() {
         checkInternetStatus();
         getSystemInfo();

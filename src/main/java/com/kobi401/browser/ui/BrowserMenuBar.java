@@ -149,7 +149,7 @@ public class BrowserMenuBar {
     }
 
     private void openSettingsPage() {
-        showNotification("Settings", "Feature not implemented yet.");
+        //browserUI.openSettingsPage(BrowserEngine.getInstance();
     }
 
     private void showNotification(String title, String message) {

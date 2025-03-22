@@ -28,10 +28,5 @@ public class DownloadsManager {
     public ObservableList<Download> getCompletedDownloads() {
         return completedDownloads;
     }
-
-    public void updateDownloadProgress(Download download, double progress, String estimatedTime) {
-        download.setProgress(progress);
-        download.setEstimatedTime(estimatedTime);
-    }
 }
 
