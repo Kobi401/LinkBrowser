@@ -1,6 +1,8 @@
 package com.kobi401.browser.ui;
 
 import com.almasb.fxgl.dsl.FXGL;
+import com.kobi401.browser.download.Download;
+import com.kobi401.browser.download.DownloadTask;
 import com.kobi401.browser.engine.BrowserEngine;
 import com.kobi401.browser.download.DownloadsManager;
 import com.kobi401.browser.memory.TabMemoryManager;
@@ -15,13 +17,18 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.*;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import javafx.concurrent.Worker;
+import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import netscape.javascript.JSObject;
 import org.controlsfx.control.StatusBar;
 
 import eu.hansolo.tilesfx.Tile;
@@ -29,6 +36,7 @@ import eu.hansolo.tilesfx.TileBuilder;
 import eu.hansolo.tilesfx.chart.ChartData;
 import eu.hansolo.tilesfx.skins.*;
 
+import java.io.File;
 import java.lang.management.ManagementFactory;
 
 public class BrowserUI {
@@ -46,6 +54,8 @@ public class BrowserUI {
     private BookmarksBar bookmarksBar;
     private ProgressIndicator progressIndicator;
     private BrowserEngine browserEngine;
+
+    private String lastClickedElementUrl = null;
 
     public BrowserUI() {
         root = new BorderPane();
@@ -244,9 +254,97 @@ public class BrowserUI {
 
         statusLabel.setStyle("-fx-padding: 0 10px 0 10px; -fx-alignment: center-left;");
 
+        //ContextMenu contextMenu = createContextMenu(webView, webEngine);
+        //webView.setOnContextMenuRequested(event -> {
+        //    contextMenu.show(webView, event.getScreenX(), event.getScreenY());
+        //});
+
         tabPane.getTabs().add(tab);
         tabPane.getSelectionModel().select(tab);
     }
+
+    private ContextMenu createContextMenu(WebView webView, WebEngine webEngine) {
+        ContextMenu contextMenu = new ContextMenu();
+
+        MenuItem backItem = new MenuItem("Back");
+        backItem.setOnAction(e -> {
+            if (webEngine.getHistory().getCurrentIndex() > 0) {
+                webEngine.getHistory().go(-1);
+            }
+        });
+
+        MenuItem forwardItem = new MenuItem("Forward");
+        forwardItem.setOnAction(e -> {
+            if (webEngine.getHistory().getCurrentIndex() < webEngine.getHistory().getEntries().size() - 1) {
+                webEngine.getHistory().go(1);
+            }
+        });
+
+        MenuItem reloadItem = new MenuItem("Reload");
+        reloadItem.setOnAction(e -> webEngine.reload());
+
+        MenuItem copyUrlItem = new MenuItem("Copy URL");
+        copyUrlItem.setOnAction(e -> {
+            Clipboard clipboard = Clipboard.getSystemClipboard();
+            ClipboardContent content = new ClipboardContent();
+            content.putString(webEngine.getLocation());
+            clipboard.setContent(content);
+        });
+
+        MenuItem openNewTabItem = new MenuItem("Open in New Tab");
+        openNewTabItem.setOnAction(e -> createNewTab(webEngine.getLocation()));
+
+        MenuItem downloadFileItem = new MenuItem("Download File");
+        downloadFileItem.setOnAction(e -> {
+            if (lastClickedElementUrl != null && !lastClickedElementUrl.isEmpty()) {
+                startDownload(lastClickedElementUrl);
+            }
+        });
+
+        contextMenu.getItems().addAll(backItem, forwardItem, reloadItem, copyUrlItem, openNewTabItem);
+
+        webView.setOnMousePressed(event -> {
+            if (event.getButton() == MouseButton.SECONDARY) {
+                if (lastClickedElementUrl != null && !lastClickedElementUrl.isEmpty() && isDownloadable(lastClickedElementUrl)) {
+                    if (!contextMenu.getItems().contains(downloadFileItem)) {
+                        contextMenu.getItems().add(downloadFileItem);
+                    }
+                } else {
+                    contextMenu.getItems().remove(downloadFileItem);
+                }
+            }
+        });
+
+        return contextMenu;
+    }
+
+    private boolean isDownloadable(String url) {
+        String[] downloadExtensions = {
+                ".zip", ".exe", ".tar", ".mp4", ".jpg", ".png", ".pdf", ".iso",
+                ".mid", ".midi", ".rar", ".7z", ".mp3", ".wav", ".doc", ".docx",
+                ".xls", ".xlsx", ".ppt", ".pptx", ".apk", ".dmg", ".bin", ".tar.gz"
+        };
+
+        for (String ext : downloadExtensions) {
+            if (url.toLowerCase().endsWith(ext)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void startDownload(String fileUrl) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save File");
+        fileChooser.setInitialFileName(fileUrl.substring(fileUrl.lastIndexOf("/") + 1));
+
+        File file = fileChooser.showSaveDialog(null);
+        if (file != null) {
+            DownloadTask downloadTask = new DownloadTask(new Download(fileUrl), fileUrl, file);
+            new Thread(downloadTask).start();
+        }
+    }
+
 
     /**
      * Shortens a URL for display purposes while keeping its full value accessible in a tooltip.

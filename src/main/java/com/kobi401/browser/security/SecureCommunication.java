@@ -1,5 +1,6 @@
 package com.kobi401.browser.security;
 
+import javax.net.ssl.HttpsURLConnection;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -13,14 +14,13 @@ public class SecureCommunication {
 
     private static final Logger logger = Logger.getLogger(SecureCommunication.class.getName());
     private static final String CERTS_DIRECTORY = System.getProperty("user.home") + File.separator + "LinkBrowser" + File.separator + "certs";
-    private static final String RESOURCE_DIR = "src/resources"; // Adjust the path as necessary for your project
+    private static final String RESOURCE_DIR = "src/resources";
 
     static {
         File certsDir = new File(CERTS_DIRECTORY);
         if (!certsDir.exists()) {
             certsDir.mkdirs();
         }
-
         try {
             FileHandler fileHandler = new FileHandler(System.getProperty("user.home") + File.separator + "LinkBrowser" + File.separator + "secure_communication.log", true);
             fileHandler.setFormatter(new SimpleFormatter());
@@ -30,14 +30,11 @@ public class SecureCommunication {
         }
     }
 
-    // Check if a URL is valid, HTTPS, and the certificate is valid
     public boolean isHttpsAndValid(String url) {
         if (!isValidUrl(url)) {
             System.err.println("Invalid URL: " + url);
             return false; // Reject invalid URL
         }
-
-        // Ignore local .html files in the resource directory
         if (isLocalHtml(url)) {
             System.out.println("Ignoring local .html page: " + url);
             return true; // Skip validation for local .html files
@@ -46,16 +43,16 @@ public class SecureCommunication {
         try {
             URL websiteUrl = new URL(url);
             if ("https".equals(websiteUrl.getProtocol())) {
-                HttpURLConnection connection = (HttpURLConnection) websiteUrl.openConnection();
+                HttpsURLConnection connection = (HttpsURLConnection) websiteUrl.openConnection();
                 connection.setRequestMethod("HEAD");
                 connection.setConnectTimeout(3000);
                 connection.setReadTimeout(3000);
 
-                // Attempt to connect and get the certificate
                 connection.connect();
 
-                // Extract the server's SSL certificate and log the status
-                connection.getResponseCode(); // Will throw an exception for invalid certificates
+                X509Certificate cert = (X509Certificate) connection.getServerCertificates()[0];
+                saveCertificate(cert);
+                connection.getResponseCode();
                 System.out.println("HTTPS connection established with valid certificate: " + url);
                 return true;
             } else {
@@ -67,7 +64,6 @@ public class SecureCommunication {
         return false;
     }
 
-    // Simple URL validation using regex
     private boolean isValidUrl(String url) {
         String urlRegex = "^(https?|ftp)://[a-zA-Z0-9.-]+(?:\\.[a-zA-Z]{2,})+(?::\\d+)?(/[^\\s]*)?$";
         Pattern pattern = Pattern.compile(urlRegex);
@@ -75,15 +71,12 @@ public class SecureCommunication {
         return matcher.matches();
     }
 
-    // Check if the URL is a local .html file (either in the resource directory or in the current directory)
     private boolean isLocalHtml(String url) {
         if (url.endsWith(".html")) {
             File file = new File(url);
             if (file.exists()) {
-                // Check if it's an existing local file (absolute or relative path)
                 return true;
             } else {
-                // Check if it's a local file within the resource directory
                 String userDir = System.getProperty(RESOURCE_DIR);
                 File resourceFile = new File(userDir, url);
                 return resourceFile.exists();
@@ -92,7 +85,6 @@ public class SecureCommunication {
         return false; // Not a local .html file
     }
 
-    // Save the certificate to a file
     private void saveCertificate(X509Certificate cert) {
         try {
             String certFileName = CERTS_DIRECTORY + File.separator + cert.getSerialNumber() + ".cer";
@@ -105,7 +97,6 @@ public class SecureCommunication {
         }
     }
 
-    // Log all connection attempts
     public void logConnectionAttempt(String url) {
         logger.info("Attempting connection: " + url);
     }

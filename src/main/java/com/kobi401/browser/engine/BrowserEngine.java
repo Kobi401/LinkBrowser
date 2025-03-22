@@ -2,6 +2,8 @@ package com.kobi401.browser.engine;
 
 import com.kobi401.browser.Launch;
 import com.kobi401.browser.devtools.InspectElementTool;
+import com.kobi401.browser.download.Download;
+import com.kobi401.browser.download.DownloadTask;
 import com.kobi401.browser.encryption.EncryptionUtils;
 import com.kobi401.browser.jsbridge.JavaScriptBridge;
 import com.kobi401.browser.security.AdBlocker;
@@ -60,6 +62,10 @@ public class BrowserEngine {
         this.securityUtils = new SecurityUtils();
         this.encryptionUtils = new EncryptionUtils();
         webEngine = webView.getEngine();
+
+        //String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
+        //webEngine.setUserAgent(userAgent);
+
         cookieManager = new CookieManager();
         java.net.CookieHandler.setDefault(cookieManager);
 
@@ -107,7 +113,29 @@ public class BrowserEngine {
             }
         });
 
+        webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
+            if (newState == Worker.State.SUCCEEDED) {
+                injectRightClickListener(webEngine);
+            }
+        });
+
         applyDefaultSettings();
+    }
+
+    private void injectRightClickListener(WebEngine webEngine) {
+        String script =
+                "document.addEventListener('contextmenu', function(event) { " +
+                        "    let element = event.target; " +
+                        "    if (element.tagName === 'IMG') { " +
+                        "        window.javaBridge.setLastClickedElement(element.src); " +
+                        "    } else if (element.tagName === 'A' && element.href) { " +
+                        "        window.javaBridge.setLastClickedElement(element.href); " +
+                        "    } else { " +
+                        "        window.javaBridge.setLastClickedElement(''); " +
+                        "    } " +
+                        "}, true);";
+
+        webEngine.executeScript(script);
     }
 
     private void initializeJavaScriptBridge() {
@@ -176,20 +204,27 @@ public class BrowserEngine {
                 return;
             }
 
-            if (url.startsWith("http://") || url.startsWith("https://")) {
-                String encryptedUrl = encryptionUtils.encrypt(url);
-                webEngine.load(url);
-                webEngine.getLoadWorker().stateProperty().addListener((observable, oldState, newState) -> {
-                    if (newState == Worker.State.SUCCEEDED) {
-                        adBlocker.blockAdsWithJS();
-                    }
-                });
+            if (isDownloadLink(url)) {
+                String fileName = getFileNameFromUrl(url);
+                File destinationFile = new File(System.getProperty("user.home"), fileName);
+                DownloadTask downloadTask = new DownloadTask(new Download(fileName), url, destinationFile);
+                new Thread(downloadTask).start();
             } else {
-                File localFile = new File(url);
-                if (localFile.exists() || new File(System.getProperty("user.dir"), url).exists()) {
-                    loadLocalHtml(url);
+                if (url.startsWith("http://") || url.startsWith("https://")) {
+                    String encryptedUrl = encryptionUtils.encrypt(url);
+                    webEngine.load(url);
+                    webEngine.getLoadWorker().stateProperty().addListener((observable, oldState, newState) -> {
+                        if (newState == Worker.State.SUCCEEDED) {
+                            adBlocker.blockAdsWithJS();
+                        }
+                    });
                 } else {
-                    System.err.println("Invalid URL: " + url);
+                    File localFile = new File(url);
+                    if (localFile.exists() || new File(System.getProperty("user.dir"), url).exists()) {
+                        loadLocalHtml(url);
+                    } else {
+                        System.err.println("Invalid URL: " + url);
+                    }
                 }
             }
 
@@ -200,14 +235,59 @@ public class BrowserEngine {
         }
     }
 
+    private boolean isDownloadLink(String url) {
+        String[] downloadExtensions = {
+                // Archives & Compressed Files
+                ".zip", ".rar", ".tar", ".gz", ".7z", ".bz2", ".xz", ".tar.gz", ".tar.xz", ".tar.bz2",
+
+                // Executables & Installers
+                ".exe", ".msi", ".apk", ".dmg", ".bin", ".run", ".sh", ".deb", ".rpm", ".iso", ".img",
+
+                // Documents & Text Files
+                ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".rtf", ".odt", ".ods", ".odp",
+
+                // Audio Files
+                ".mp3", ".wav", ".aac", ".flac", ".ogg", ".m4a", ".wma", ".mid", ".midi", ".opus", ".aiff",
+
+                // Video Files
+                ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".mpeg", ".mpg", ".m4v", ".ts",
+
+                // Image Files
+                ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".svg", ".webp", ".ico", ".heic", ".heif",
+
+                // Code & Scripts
+                ".java", ".py", ".js", ".html", ".css", ".php", ".c", ".cpp", ".h", ".cs", ".swift", ".rb", ".go", ".sh",
+
+                // Fonts
+                ".ttf", ".otf", ".woff", ".woff2",
+
+                // Others
+                ".torrent", ".crx", ".dll", ".bat", ".log", ".cfg", ".dat"
+        };
+        String lowerUrl = url.toLowerCase();
+        for (String ext : downloadExtensions) {
+            if (lowerUrl.endsWith(ext)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    private String getFileNameFromUrl(String url) {
+        String fileName = url.substring(url.lastIndexOf("/") + 1);
+        if (fileName.contains("?")) {
+            fileName = fileName.substring(0, fileName.indexOf("?"));
+        }
+        return fileName;
+    }
+
     private boolean isLocalHtml(String url) {
-        // Check if the URL is a local file (starts with "file://" or a relative path)
         if (url.startsWith("file://")) {
-            return new File(url.substring(7)).exists(); // Check for file:// URLs
+            return new File(url.substring(7)).exists();
         } else {
-            // Check for relative paths or absolute file paths
             File localFile = new File(url);
-            return localFile.exists() || new File(System.getProperty("user.dir"), url).exists(); // Check for relative file paths
+            return localFile.exists() || new File(System.getProperty("user.dir"), url).exists();
         }
     }
 

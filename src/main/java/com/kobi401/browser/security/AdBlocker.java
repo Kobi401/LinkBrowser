@@ -8,14 +8,13 @@ import java.util.regex.*;
 import java.util.logging.*;
 
 import com.kobi401.browser.jsbridge.JavaScriptBridge;
-import netscape.javascript.JSObject;  // Import JSObject to allow interaction with JavaScript
+import netscape.javascript.JSObject;
 
 public class AdBlocker {
 
     private static final Logger logger = Logger.getLogger(AdBlocker.class.getName());
     private static final Set<String> blockedUrls = new HashSet<>();
     private static final String EASYLIST_URL = "https://easylist.to/easylist/easylist.txt";
-   // private JSObject jsBridge;
 
     public AdBlocker() {
         try {
@@ -24,7 +23,6 @@ public class AdBlocker {
             logger.severe("Failed to fetch EasyList: " + e.getMessage());
         }
     }
-
 
     // Fetch and parse the EasyList
     public void fetchEasyList() throws IOException {
@@ -36,12 +34,9 @@ public class AdBlocker {
         String inputLine;
 
         while ((inputLine = in.readLine()) != null) {
-            // Skip comments in the list (lines starting with "!")
             if (inputLine.startsWith("!") || inputLine.trim().isEmpty()) {
                 continue;
             }
-
-            // Regex to match domains or URLs
             String domainPattern = "(?<=//)([a-zA-Z0-9.-]+)";
             Pattern pattern = Pattern.compile(domainPattern);
             Matcher matcher = pattern.matcher(inputLine);
@@ -78,13 +73,16 @@ public class AdBlocker {
         }
     }
 
+    // Block ads by removing popups, images, and unwanted elements
     public void blockAdsWithJS() {
         String adBlockerScript =
                 "(function() { " +
                         "   var adSelectors = [" +
                         "       'iframe[src*=\"ads\"]', 'iframe[src*=\"doubleclick\"]', 'iframe[src*=\"adservice\"]', 'iframe[src*=\"googlesyndication\"]', " +
                         "       'script[src*=\"ads\"]', 'script[src*=\"doubleclick\"]', 'script[src*=\"adservice\"]', 'script[src*=\"googlesyndication\"]', " +
-                        "       'div[class*=\"ad\"]', 'div[id*=\"ad\"]', 'div[class*=\"sponsored\"]', 'div[class*=\"promoted\"]', 'div[id*=\"sponsored\"]' " +
+                        "       'div[class*=\"ad\"]', 'div[id*=\"ad\"]', 'div[class*=\"sponsored\"]', 'div[id*=\"sponsored\"]', 'div[class*=\"promoted\"]', " +
+                        "       'div[id*=\"promoted\"]', 'img[src*=\"ads\"]', 'img[src*=\"doubleclick\"]', 'img[src*=\"adservice\"]', " +
+                        "       'a[href*=\"javascript:window.open\"]', 'a[href*=\"ad\"]', 'a[href*=\"popup\"]'" +
                         "   ]; " +
                         "   function removeAds() { " +
                         "       adSelectors.forEach(selector => { " +
@@ -103,6 +101,7 @@ public class AdBlocker {
         injectJavaScript(adBlockerScript);
     }
 
+    // Block ads based on URL
     public void blockAdsByUrl(String url) {
         if (isAdUrl(url)) {
             blockAdsWithJS();
@@ -117,6 +116,7 @@ public class AdBlocker {
         blockedUrls.clear();
     }
 
+    // Refresh EasyList to reload blocked URLs
     public void refreshEasyList() {
         try {
             blockedUrls.clear();
