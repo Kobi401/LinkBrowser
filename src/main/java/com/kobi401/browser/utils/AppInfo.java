@@ -35,8 +35,8 @@ public class AppInfo {
     }
 
     public static AppInfo createDefaultAppInfo() {
-        String version = "2.1.2";
-        String build = "2025.03.22";
+        String version = "2.1.3";
+        String build = "2025.03.24";
         String buildType = System.getProperty("build.type", "STABLE").toUpperCase(Locale.ROOT);
         return new AppInfo(version, build, buildType);
     }

@@ -13,6 +13,7 @@ module com.kobi401.browser {
     requires jdk.jsobject;
     requires java.logging;
     requires jdk.management;
+    requires java.desktop;
 
     opens com.kobi401.browser to javafx.fxml;
     exports com.kobi401.browser;

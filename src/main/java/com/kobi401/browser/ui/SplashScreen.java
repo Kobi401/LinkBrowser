@@ -49,31 +49,45 @@ public class SplashScreen {
             Platform.runLater(() -> pluginStatusLabel.setText("Checking for updates..."));
             String currentVersion = appInfo.getVersion();
             String latestVersion = UpdateChecker.getLatestVersion();
-            if (latestVersion != null && UpdateChecker.compareVersions(currentVersion, latestVersion)) {
-                Platform.runLater(() -> {
-                    pluginStatusLabel.setText("An update is available! (v" + latestVersion + ")");
-                    pluginStatusLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #ff0000;");
-                    Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-                    alert.setTitle("Update Available");
-                    alert.setHeaderText("A new version (v" + latestVersion + ") is available!");
-                    alert.setContentText("Would you like to update now?");
-                    Optional<ButtonType> result = alert.showAndWait();
-                    if (result.isPresent() && result.get() == ButtonType.OK) {
-                        pluginStatusLabel.setText("Downloading update...");
-                        new Thread(() -> {
-                            UpdateChecker.downloadAndReplaceJar(new File("Browser.jar"));
-                            Platform.runLater(() -> {
-                                pluginStatusLabel.setText("Update complete! Please restart Link.");
-                                showRestartAlert();
-                            });
-                        }).start();
-                    } else {
+            if (latestVersion != null) {
+                int versionComparison = UpdateChecker.compareVersionsInteger(currentVersion, latestVersion);
+                if (versionComparison > 0) {
+                    Platform.runLater(() -> {
+                        pluginStatusLabel.setText("Unstable build detected! (v" + currentVersion + ")");
+                        pluginStatusLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #ff8000;");
                         startFadeOutTimer();
-                    }
-                });
+                    });
+                } else if (versionComparison < 0) {
+                    Platform.runLater(() -> {
+                        pluginStatusLabel.setText("An update is available! (v" + latestVersion + ")");
+                        pluginStatusLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #ff0000;");
+                        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+                        alert.setTitle("Update Available");
+                        alert.setHeaderText("A new version (v" + latestVersion + ") is available!");
+                        alert.setContentText("Would you like to update now?");
+                        Optional<ButtonType> result = alert.showAndWait();
+                        if (result.isPresent() && result.get() == ButtonType.OK) {
+                            pluginStatusLabel.setText("Downloading update...");
+                            new Thread(() -> {
+                                UpdateChecker.downloadAndReplaceJar(new File("Browser.jar"));
+                                Platform.runLater(() -> {
+                                    pluginStatusLabel.setText("Update complete! Please restart Link.");
+                                    showRestartAlert();
+                                });
+                            }).start();
+                        } else {
+                            startFadeOutTimer();
+                        }
+                    });
+                } else {
+                    Platform.runLater(() -> {
+                        pluginStatusLabel.setText("No updates found. Launching...");
+                        startFadeOutTimer();
+                    });
+                }
             } else {
                 Platform.runLater(() -> {
-                    pluginStatusLabel.setText("No updates found. Launching...");
+                    pluginStatusLabel.setText("Failed to check for updates.");
                     startFadeOutTimer();
                 });
             }
