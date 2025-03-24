@@ -1,6 +1,8 @@
 package com.kobi401.browser.utils;
 
+import com.kobi401.browser.download.DownloadTask;
 import javafx.application.Platform;
+import javafx.concurrent.WorkerStateEvent;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 
@@ -12,6 +14,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Scanner;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,6 +23,9 @@ public class UpdateChecker {
     private static final String REPO_URL = "https://github.com/Kobi401/LinkBrowser/releases/tag/Stable";
     private static final String DOWNLOAD_URL = "https://github.com/Kobi401/LinkBrowser/releases/download/Stable/Browser.jar";
     private static final String VERSION_REGEX = "Stable\\s(\\d+\\.\\d+\\.\\d+)";
+
+    private static final int BUFFER_SIZE = 8192;
+    private static final int MAX_RETRIES = 3;
 
     public static String getLatestVersion() {
         try {
@@ -70,37 +76,69 @@ public class UpdateChecker {
         return false;
     }
 
-    public static void downloadAndReplaceJar(File jarFile) {
-        try {
-            Platform.runLater(() -> showAlert("Updating...", "Downloading the latest version..."));
-            File tempFile = new File(jarFile.getParent(), "Browser.jar");
-            HttpURLConnection connection = (HttpURLConnection) new URL(DOWNLOAD_URL).openConnection();
-            connection.setRequestMethod("GET");
+    public static int compareVersionsInteger(String current, String latest) {
+        String[] currentParts = current.split("\\.");
+        String[] latestParts = latest.split("\\.");
+        for (int i = 0; i < Math.max(currentParts.length, latestParts.length); i++) {
+            int currentVal = (i < currentParts.length) ? Integer.parseInt(currentParts[i]) : 0;
+            int latestVal = (i < latestParts.length) ? Integer.parseInt(latestParts[i]) : 0;
 
-            try (InputStream in = connection.getInputStream();
-                 FileOutputStream out = new FileOutputStream(tempFile)) {
-                byte[] buffer = new byte[4096];
-                int bytesRead;
-                while ((bytesRead = in.read(buffer)) != -1) {
-                    out.write(buffer, 0, bytesRead);
+            if (currentVal < latestVal) return -1;
+            if (currentVal > latestVal) return 1;
+        }
+        return 0;
+    }
+
+    public static void downloadAndReplaceJar(File jarFile) {
+        new Thread(() -> {
+            File tempFile = new File(jarFile.getParent(), "Browser_update.jar");
+            int attempt = 0;
+            boolean success = false;
+            while (attempt < MAX_RETRIES && !success) {
+                attempt++;
+                try {
+                    int finalAttempt = attempt;
+                    Platform.runLater(() -> showAlert("Updating...", "Downloading the latest version (Attempt " + finalAttempt + ")..."));
+                    if (downloadFile(DOWNLOAD_URL, tempFile)) {
+                        Platform.runLater(() -> showAlert("Update Complete", "Replacing old version..."));
+                        Files.move(tempFile.toPath(), jarFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                        success = true;
+                        Platform.runLater(() -> {
+                            try {
+                                relaunchLink(jarFile);
+                            } catch (IOException e) {
+                                showAlert("Relaunch Failed", "Failed to relaunch Link: " + e.getMessage());
+                            }
+                        });
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Platform.runLater(() -> showAlert("Update Failed", "Error: " + e.getMessage()));
                 }
             }
+            if (!success) {
+                Platform.runLater(() -> showAlert("Update Failed", "Failed after " + MAX_RETRIES + " attempts."));
+            }
+        }).start();
+    }
 
-            Platform.runLater(() -> showAlert("Update Complete", "Replacing old version..."));
-
-            Files.move(tempFile.toPath(), jarFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-
-            Platform.runLater(() -> {
-                try {
-                    relaunchLink(jarFile);
-                } catch (IOException e) {
-                    showAlert("Relaunch Failed", "Failed to relaunch Link: " + e.getMessage());
-                }
-            });
-
-        } catch (Exception e) {
-            Platform.runLater(() -> showAlert("Update Failed", "An error occurred: " + e.getMessage()));
+    public static boolean downloadFile(String fileURL, File destination) {
+        DownloadTask downloadTask = new DownloadTask(null, fileURL, destination);
+        Thread downloadThread = new Thread(downloadTask);
+        downloadThread.setDaemon(true);
+        downloadThread.start();
+        AtomicBoolean success = new AtomicBoolean(false);
+        downloadTask.setOnSucceeded((WorkerStateEvent event) -> success.set(true));
+        downloadTask.setOnFailed((WorkerStateEvent event) -> success.set(false));
+        try {
+            downloadThread.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            Platform.runLater(() -> showAlert("Update Failed", "Download interrupted."));
+            return false;
         }
+
+        return success.get();
     }
 
     private static void relaunchLink(File jarFile) throws IOException {

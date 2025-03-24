@@ -5,7 +5,9 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.*;
 import java.util.logging.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -28,9 +30,13 @@ public class SecureCommunication {
         } catch (IOException e) {
             System.err.println("Error setting up logger: " + e.getMessage());
         }
+
+        //new SecureCommunication().loadCertificates();
     }
 
     public boolean isHttpsAndValid(String url) {
+        loadCertificates();
+
         if (!isValidUrl(url)) {
             System.err.println("Invalid URL: " + url);
             return false; // Reject invalid URL
@@ -51,10 +57,14 @@ public class SecureCommunication {
                 connection.connect();
 
                 X509Certificate cert = (X509Certificate) connection.getServerCertificates()[0];
-                saveCertificate(cert);
-                connection.getResponseCode();
-                System.out.println("HTTPS connection established with valid certificate: " + url);
-                return true;
+                if (isCertificateValid(cert)) {
+                    saveCertificate(cert);
+                    connection.getResponseCode();
+                    System.out.println("HTTPS connection established with valid certificate: " + url);
+                    return true;
+                } else {
+                    System.out.println("Certificate is outdated or invalid for: " + url);
+                }
             } else {
                 System.out.println("Insecure URL: " + url);
             }
@@ -88,12 +98,57 @@ public class SecureCommunication {
     private void saveCertificate(X509Certificate cert) {
         try {
             String certFileName = CERTS_DIRECTORY + File.separator + cert.getSerialNumber() + ".cer";
-            try (FileOutputStream fos = new FileOutputStream(certFileName)) {
-                fos.write(cert.getEncoded());
+            if (!isCertificateSaved(certFileName)) {
+                try (FileOutputStream fos = new FileOutputStream(certFileName)) {
+                    fos.write(cert.getEncoded());
+                }
+                logger.info("Saved certificate: " + cert.getSerialNumber() + " to " + certFileName);
             }
-            logger.info("Saved certificate: " + cert.getSerialNumber() + " to " + certFileName);
         } catch (Exception e) {
             logger.severe("Error saving certificate: " + e.getMessage());
+        }
+    }
+
+    private boolean isCertificateSaved(String certFileName) {
+        File certFile = new File(certFileName);
+        return certFile.exists();
+    }
+
+    private boolean isCertificateValid(X509Certificate cert) {
+        try {
+            cert.checkValidity(); // Checks if the certificate is expired or valid
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void loadCertificates() {
+        File certsDir = new File(CERTS_DIRECTORY);
+        File[] certFiles = certsDir.listFiles((dir, name) -> name.endsWith(".cer"));
+        if (certFiles != null) {
+            for (File certFile : certFiles) {
+                try (FileInputStream fis = new FileInputStream(certFile)) {
+                    Certificate cert = CertificateFactory.getInstance("X.509").generateCertificate(fis);
+                    if (cert instanceof X509Certificate) {
+                        X509Certificate x509Cert = (X509Certificate) cert;
+                        if (!isCertificateValid(x509Cert)) {
+                            deleteCertificate(certFile);
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error loading certificate: " + e.getMessage());
+                    deleteCertificate(certFile); // Remove the invalid certificate
+                }
+            }
+        }
+    }
+
+    private void deleteCertificate(File certFile) {
+        if (certFile.exists() && certFile.delete()) {
+            logger.info("Deleted expired certificate: " + certFile.getName());
+        } else {
+            logger.severe("Failed to delete expired certificate: " + certFile.getName());
         }
     }
 

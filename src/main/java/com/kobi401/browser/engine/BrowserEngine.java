@@ -5,29 +5,21 @@ import com.kobi401.browser.devtools.InspectElementTool;
 import com.kobi401.browser.download.Download;
 import com.kobi401.browser.download.DownloadTask;
 import com.kobi401.browser.encryption.EncryptionUtils;
-import com.kobi401.browser.jsbridge.JavaScriptBridge;
+import com.kobi401.browser.jsbridge.JSInjectionSystem;
 import com.kobi401.browser.security.AdBlocker;
 import com.kobi401.browser.security.SecurityUtils;
-import com.kobi401.browser.ui.BrowserUI;
 import javafx.beans.value.ChangeListener;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import javafx.concurrent.Worker;
-import netscape.javascript.JSObject;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.CookieManager;
-import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class BrowserEngine {
     private static WebView webView;
@@ -38,9 +30,9 @@ public class BrowserEngine {
     private static final Logger logger = Logger.getLogger(BrowserEngine.class.getName());
     private CookieManager cookieManager;
     private EncryptionUtils encryptionUtils;
-    private Stack<String> webHistory = new Stack<>();
+    private final Stack<String> webHistory = new Stack<>();
     private SecurityUtils securityUtils;
-    private AdBlocker adBlocker;
+    //private AdBlocker adBlocker;
 
     private static BrowserEngine instance;
     private InspectElementTool inspectElementTool;
@@ -59,63 +51,42 @@ public class BrowserEngine {
 
     private void initialize() {
         webView = new WebView();
-        this.securityUtils = new SecurityUtils();
-        this.encryptionUtils = new EncryptionUtils();
         webEngine = webView.getEngine();
 
-        //String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
-        //webEngine.setUserAgent(userAgent);
-
+        this.securityUtils = new SecurityUtils();
+        this.encryptionUtils = new EncryptionUtils();
         cookieManager = new CookieManager();
         java.net.CookieHandler.setDefault(cookieManager);
-
-        String userHome = System.getProperty("user.home");
-        String userDataDirectoryPath = userHome + File.separator + "LinkBrowser" + File.separator + "User";
-        File userDataDirectory = new File(userDataDirectoryPath);
-        if (!userDataDirectory.exists()) {
-            boolean created = userDataDirectory.mkdirs();
-            if (created) {
-                System.out.println("User data directory created at: " + userDataDirectoryPath);
-            } else {
-                System.err.println("Failed to create user data directory at: " + userDataDirectoryPath);
-            }
+        File userDataDirectory = new File(System.getProperty("user.home") + File.separator + "LinkBrowser" + File.separator + "User");
+        if (userDataDirectory.mkdirs()) {
+            System.out.println("User data directory created at: " + userDataDirectory.getAbsolutePath());
         }
-        webView.getEngine().setUserDataDirectory(userDataDirectory);
+        webEngine.setUserDataDirectory(userDataDirectory);
 
-        initializeJavaScriptBridge();
-
-        if (this.adBlocker == null) {
-            this.adBlocker = new AdBlocker();
-        }
+        JSInjectionSystem jsInjectionSystem = new JSInjectionSystem(webEngine);
 
         loadLocalHtml("welcome.html");
 
-        // Event Listeners
-        webEngine.getLoadWorker().progressProperty().addListener((obs, oldVal, newVal) -> {
-            loadProgress = newVal.doubleValue();
-        });
-
         webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
             isLoading = newState == Worker.State.RUNNING;
+            if (newState == Worker.State.SUCCEEDED) {
+                injectRightClickListener(webEngine);
+            }
         });
 
-        webEngine.locationProperty().addListener((obs, oldVal, newVal) -> {
-            currentUrl = newVal;
-        });
+        webEngine.getLoadWorker().progressProperty().addListener((obs, oldVal, newVal) -> loadProgress = newVal.doubleValue());
+
+        webEngine.locationProperty().addListener((obs, oldVal, newVal) -> currentUrl = newVal);
 
         webEngine.titleProperty().addListener((obs, oldVal, newVal) -> {
-            System.out.println("Page Title Changed: " + newVal);
+            if (newVal != null) {
+                System.out.println("Page Title Changed: " + newVal);
+            }
         });
 
         webEngine.getLoadWorker().exceptionProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 System.err.println("Error loading page: " + newVal.getMessage());
-            }
-        });
-
-        webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
-            if (newState == Worker.State.SUCCEEDED) {
-                injectRightClickListener(webEngine);
             }
         });
 
@@ -136,21 +107,6 @@ public class BrowserEngine {
                         "}, true);";
 
         webEngine.executeScript(script);
-    }
-
-    private void initializeJavaScriptBridge() {
-        webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
-            if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
-                try {
-                    JSObject jsBridge = (JSObject) webEngine.executeScript("window");
-                    jsBridge.setMember("java", this);
-                    jsBridge.setMember("javaInspectorBridge", inspectElementTool);
-                    logger.info("JavaScript bridge initialized successfully.");
-                } catch (Exception e) {
-                    logger.severe("Failed to initialize JavaScript bridge: " + e.getMessage());
-                }
-            }
-        });
     }
 
     public void setUserAgent(String userAgent) {
@@ -174,19 +130,11 @@ public class BrowserEngine {
     }
 
     public void setFontSize(String fontSize) {
-        String size = "16px";
-        switch (fontSize) {
-            case "small":
-                size = "12px";
-                break;
-            case "large":
-                size = "20px";
-                break;
-            case "medium":
-            default:
-                size = "16px";
-                break;
-        }
+        String size = switch (fontSize) {
+            case "small" -> "12px";
+            case "large" -> "20px";
+            default -> "16px";
+        };
         webEngine.executeScript("document.body.style.fontSize = '" + size + "';");
     }
 
@@ -196,42 +144,45 @@ public class BrowserEngine {
         setFontSize("medium");
     }
 
-
+    //Should be alot more optimized now?
     public void loadPage(String url) {
         try {
+            //we ain't handling insecure stuff. Period.
             if (!securityUtils.isSecureUrl(url) && !isLocalHtml(url)) {
-                System.err.println("Insecure URL: " + url);
+                System.err.println("Stop right there! Insecure URL: " + url);
                 return;
             }
 
             if (isDownloadLink(url)) {
-                String fileName = getFileNameFromUrl(url);
-                File destinationFile = new File(System.getProperty("user.home"), fileName);
-                DownloadTask downloadTask = new DownloadTask(new Download(fileName), url, destinationFile);
-                new Thread(downloadTask).start();
-            } else {
-                if (url.startsWith("http://") || url.startsWith("https://")) {
-                    String encryptedUrl = encryptionUtils.encrypt(url);
-                    webEngine.load(url);
-                    webEngine.getLoadWorker().stateProperty().addListener((observable, oldState, newState) -> {
-                        if (newState == Worker.State.SUCCEEDED) {
-                            adBlocker.blockAdsWithJS();
-                        }
-                    });
-                } else {
-                    File localFile = new File(url);
-                    if (localFile.exists() || new File(System.getProperty("user.dir"), url).exists()) {
-                        loadLocalHtml(url);
-                    } else {
-                        System.err.println("Invalid URL: " + url);
-                    }
-                }
+                handleDownload(url);
+                return;
             }
-
+            if (url.startsWith("http://") || url.startsWith("https://")) {
+                webEngine.load(url);
+            }
+            else {
+                loadLocalFile(url);
+            }
             webHistory.push(url);
 
         } catch (Exception e) {
             System.err.println("Error loading page: " + e.getMessage());
+        }
+    }
+
+    private void handleDownload(String url) {
+        String fileName = getFileNameFromUrl(url);
+        File destinationFile = new File(System.getProperty("user.home"), fileName);
+        System.out.println("Downloading: " + fileName);
+        new Thread(new DownloadTask(new Download(fileName), url, destinationFile)).start();
+    }
+
+    private void loadLocalFile(String url) {
+        File localFile = new File(url);
+        if (localFile.exists() || new File(System.getProperty("user.dir"), url).exists()) {
+            loadLocalHtml(url);
+        } else {
+            System.err.println("Invalid URL, again: " + url);
         }
     }
 
@@ -272,7 +223,6 @@ public class BrowserEngine {
         }
         return false;
     }
-
 
     private String getFileNameFromUrl(String url) {
         String fileName = url.substring(url.lastIndexOf("/") + 1);
@@ -366,17 +316,5 @@ public class BrowserEngine {
 
     public String getPageTitle() {
         return webEngine.getTitle();
-    }
-
-    public void addUrlChangeListener(ChangeListener<String> listener) {
-        webEngine.locationProperty().addListener(listener);
-    }
-
-    public void addTitleChangeListener(ChangeListener<String> listener) {
-        webEngine.titleProperty().addListener(listener);
-    }
-
-    public void addLoadStateListener(ChangeListener<Worker.State> listener) {
-        webEngine.getLoadWorker().stateProperty().addListener(listener);
     }
 }

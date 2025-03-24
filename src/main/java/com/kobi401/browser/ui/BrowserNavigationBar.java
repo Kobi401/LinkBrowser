@@ -38,7 +38,7 @@ public class BrowserNavigationBar {
         newTabButton.setOnAction(e -> browserUI.createNewTab("https://www.google.com"));
 
         settingsButton.setOnAction(e -> browserUI.openSettingsPage(BrowserEngine.getInstance()));
-        downloadsButton.setOnAction(e -> browserUI.showNotificationInBrowser("Error", "Downloads isn't supported yet!"));
+        downloadsButton.setOnAction(e -> browserUI.showNotificationInBrowser("Error", "Use the Download button on the Menubar!"));
 
         bookmarksBar = new BookmarksBar(BrowserEngine.getInstance().getWebEngine());
         bookmarksBar.addBookmark("Google", "https://www.google.com");

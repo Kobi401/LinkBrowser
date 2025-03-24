@@ -7,14 +7,23 @@ import com.kobi401.browser.download.DownloadsWindow;
 import com.kobi401.browser.engine.BrowserEngine;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuBar;
+import javafx.scene.control.MenuItem;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.Region;
+
+import java.awt.*;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 public class BrowserMenuBar {
     private MenuBar menuBar;
     private DownloadsManager downloadsManager;
+    private BrowserUI browserUI;
 
     public BrowserMenuBar(BrowserUI browserUI) {
+        this.browserUI = browserUI;
         menuBar = new MenuBar();
         downloadsManager = new DownloadsManager();
 
@@ -86,14 +95,16 @@ public class BrowserMenuBar {
         Menu developerMenu = new Menu("Developer");
         MenuItem inspectElement = new MenuItem("Inspect Element");
         MenuItem devConsole = new MenuItem("Developer Console");
+        MenuItem githubMenuItem = new MenuItem("GitHub Repository");
 
         inspectElement.setAccelerator(KeyCombination.keyCombination("Ctrl+Shift+I"));
         devConsole.setAccelerator(KeyCombination.keyCombination("Ctrl+Shift+J"));
 
         inspectElement.setOnAction(e -> new InspectElementTool(browserUI).show());
         devConsole.setOnAction(e -> new DeveloperConsole(browserUI).show());
+        githubMenuItem.setOnAction(e -> openGitHubPage());
 
-        developerMenu.getItems().addAll(inspectElement, devConsole);
+        developerMenu.getItems().addAll(inspectElement, devConsole, githubMenuItem);
 
         Menu settingsMenu = new Menu("Settings");
         MenuItem openSettings = new MenuItem("Open Settings");
@@ -114,6 +125,11 @@ public class BrowserMenuBar {
         menuBar.getMenus().addAll(fileMenu, navigationMenu, bookmarksMenu, historyMenu, downloadsMenu, developerMenu, settingsMenu, helpMenu);
 
         //ThemeManager.applyMenuBarTheme(menuBar, ThemeManager.isDarkMode() ? "dark" : "light");
+    }
+
+    private void openGitHubPage() {
+        String githubUrl = "https://github.com/Kobi401/LinkBrowser";
+        browserUI.createNewTab(githubUrl);
     }
 
     public MenuBar getMenuBar() {

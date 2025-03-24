@@ -1,12 +1,12 @@
 package com.kobi401.browser.ui;
 
-import com.almasb.fxgl.dsl.FXGL;
 import com.kobi401.browser.download.Download;
 import com.kobi401.browser.download.DownloadTask;
 import com.kobi401.browser.engine.BrowserEngine;
 import com.kobi401.browser.download.DownloadsManager;
 import com.kobi401.browser.memory.TabMemoryManager;
 import com.kobi401.browser.utils.AppInfo;
+import com.kobi401.browser.utils.UpdateChecker;
 import com.sun.management.OperatingSystemMXBean;
 import eu.hansolo.tilesfx.TileBuilder;
 import javafx.animation.KeyFrame;
@@ -29,16 +29,15 @@ import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Duration;
-import netscape.javascript.JSObject;
 import org.controlsfx.control.StatusBar;
 
 import eu.hansolo.tilesfx.Tile;
-import eu.hansolo.tilesfx.TileBuilder;
-import eu.hansolo.tilesfx.chart.ChartData;
-import eu.hansolo.tilesfx.skins.*;
 
 import java.io.File;
 import java.lang.management.ManagementFactory;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Optional;
 
 public class BrowserUI {
     private BorderPane root;
@@ -68,10 +67,25 @@ public class BrowserUI {
         root.setTop(new VBox(menuBar.getMenuBar(), navigationBar.getNavigationBar()));
         root.setCenter(tabPane);
         root.setBottom(statusBar);
-
         createNewTab("welcome.html");
+        //checkForUpdates();
     }
 
+    //TODO fix this
+    private void checkForUpdates() {
+        AppInfo appInfo = AppInfo.createDefaultAppInfo();
+        String currentVersion = appInfo.getVersion();
+        System.out.println("Current Version: " + currentVersion);
+        boolean updateAvailable = UpdateChecker.isUpdateAvailable(currentVersion);
+        System.out.println("Is Update Available? " + updateAvailable);
+        if (updateAvailable) {
+            showNotificationInBrowser("Update Available", "A new version of Link is available.");
+        } else {
+            showNotificationInBrowser("No Update", "Link is upto date.");
+        }
+    }
+
+    //TODO Fix this aswell
     public void openSettingsPage(BrowserEngine browserEngine) {
         Platform.runLater(() -> {
             Stage settingsStage = new Stage();
@@ -96,7 +110,7 @@ public class BrowserUI {
 
             ChoiceBox<String> fontSizeChoiceBox = new ChoiceBox<>();
             fontSizeChoiceBox.getItems().addAll("Small", "Medium", "Large");
-            fontSizeChoiceBox.setValue(System.getProperty("browser.fontSize", "Medium")); // Load saved font size
+            fontSizeChoiceBox.setValue(System.getProperty("browser.fontSize", "Medium"));
 
             CheckBox cookiesCheckbox = new CheckBox("Enable Cookies");
             cookiesCheckbox.setSelected(Boolean.parseBoolean(System.getProperty("browser.cookies", "true")));
@@ -133,29 +147,63 @@ public class BrowserUI {
 
     private StatusBar createStatusBar() {
         StatusBar bar = new StatusBar();
+
         progressBar = new ProgressBar(0);
         progressBar.setPrefWidth(200);
 
         statusLabel = new Label("Ready");
 
-        HBox statusContainer = new HBox(statusLabel, progressBar);
+        Label networkStatusLabel = new Label("Online");
+        networkStatusLabel.setStyle("-fx-text-fill: green;");
+
+        Tooltip statusTooltip = new Tooltip("Click to view more details.");
+        statusLabel.setTooltip(statusTooltip);
+
+        Label errorStatusLabel = new Label("");
+        errorStatusLabel.setStyle("-fx-text-fill: red;");
+
+        HBox statusContainer = new HBox(statusLabel, progressBar, networkStatusLabel, errorStatusLabel);
         statusContainer.setSpacing(10);
         statusContainer.setAlignment(Pos.CENTER_RIGHT);
-
         bar.getRightItems().add(statusContainer);
-
-        bar.setOnMouseClicked(e -> showNotificationInBrowser("Status Clicked", "You clicked the status bar!"));
+        bar.setOnMouseClicked(e -> showNotificationInBrowser("Statusbar", "This will be used at some point lol."));
+        updateNetworkStatus(networkStatusLabel);
+        updateErrorStatus(errorStatusLabel);
 
         return bar;
     }
 
-    public void updateProgress(double progress) {
-        progressBar.setProgress(progress);
-        progressIndicator.setProgress(progress);
+    private void updateNetworkStatus(Label networkStatusLabel) {
+        boolean isOnline = isNetworkAvailable();
+        if (isOnline) {
+            networkStatusLabel.setText("Online");
+            networkStatusLabel.setStyle("-fx-text-fill: green;");
+        } else {
+            networkStatusLabel.setText("Offline");
+            networkStatusLabel.setStyle("-fx-text-fill: red;");
+        }
     }
 
-    public void setStatusMessage(String message) {
-        statusLabel.setText(message);
+    private boolean isNetworkAvailable() {
+        try {
+            URL url = new URL("https://www.google.com");
+            HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+            urlConnection.setRequestMethod("GET");
+            urlConnection.setConnectTimeout(1500);
+            urlConnection.connect();
+            return (urlConnection.getResponseCode() == HttpURLConnection.HTTP_OK);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void updateErrorStatus(Label errorStatusLabel) {
+        boolean hasError = false;
+        if (hasError) {
+            errorStatusLabel.setText("Error: Unable to load page.");
+        } else {
+            errorStatusLabel.setText("");
+        }
     }
 
     public void showNotificationInBrowser(String title, String message) {
@@ -163,14 +211,13 @@ public class BrowserUI {
         getCurrentWebView().getEngine().executeScript("document.body.innerHTML += `" + notificationHtml + "`;");
         getCurrentWebView().getEngine().executeScript(
                 "var notification = document.getElementById('custom-notification');" +
-                        "if (notification) { notification.style.opacity = 0; notification.style.transition = 'opacity 1s'; notification.style.opacity = 1; }");
-
+                        "if (notification) { notification.style.opacity = 1; notification.style.transform = 'translateY(0)'; }");
         Platform.runLater(() -> {
             Timeline fadeOutTimeline = new Timeline(
                     new KeyFrame(Duration.seconds(3), event -> {
                         getCurrentWebView().getEngine().executeScript(
                                 "var notification = document.getElementById('custom-notification');" +
-                                        "if (notification) { notification.style.transition = 'opacity 1s'; notification.style.opacity = 0; }");
+                                        "if (notification) { notification.style.opacity = 0; notification.style.transform = 'translateY(20px)'; }");
                     }),
                     new KeyFrame(Duration.seconds(4), event -> {
                         getCurrentWebView().getEngine().executeScript(
@@ -185,30 +232,13 @@ public class BrowserUI {
     private String generateNotificationHTML(String title, String message) {
         return "<div id='custom-notification' style='" +
                 "position: fixed; bottom: 20px; right: 20px; " +
-                "background-color: rgba(0, 0, 0, 0.7); color: white; " +
-                "padding: 10px; border-radius: 5px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); " +
-                "font-family: Arial, sans-serif; font-size: 14px; z-index: 9999;'>" +
-                "<strong>" + title + "</strong><br/>" + message + "</div>";
-    }
-
-    public void startBackgroundProcess() {
-        new Thread(() -> {
-            for (double i = 0; i <= 1.0; i += 0.1) {
-                final double progress = i;
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                javafx.application.Platform.runLater(() -> {
-                    updateProgress(progress);
-                    if (progress == 1.0) {
-                        setStatusMessage("Task Completed");
-                        showNotificationInBrowser("Process Complete", "The background process has finished!");
-                    }
-                });
-            }
-        }).start();
+                "background-color: #333; color: white; " +
+                "padding: 12px 20px; border-radius: 8px; box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); " +
+                "font-family: 'Roboto', sans-serif; font-size: 16px; line-height: 1.4; z-index: 9999; " +
+                "transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out; transform: translateY(20px); opacity: 0;'>" +
+                "<strong style='font-weight: bold; font-size: 18px;'>" + title + "</strong><br/>" +
+                "<span style='font-size: 14px;'>" + message + "</span>" +
+                "</div>";
     }
 
     public void createNewTab(String url) {
@@ -216,6 +246,8 @@ public class BrowserUI {
         browserEngine = new BrowserEngine();
         WebView webView = browserEngine.getWebView();
         browserEngine.loadPage(url);
+
+        setFavicon(tab, browserEngine.getWebEngine());
 
         tab.setContent(webView);
         tab.setOnClosed(e -> tabPane.getTabs().remove(tab));
@@ -244,6 +276,7 @@ public class BrowserUI {
             } else if (newState == Worker.State.SUCCEEDED) {
                 statusLabel.setText("Done: " + shortenUrl(webEngine.getLocation()));
                 tab.setText(browserEngine.getPageTitle());
+                setFavicon(tab, webEngine);  // Set favicon after page loads
             } else if (newState == Worker.State.FAILED) {
                 statusLabel.setText("Failed to load: " + shortenUrl(webEngine.getLocation()));
             }
@@ -255,13 +288,26 @@ public class BrowserUI {
 
         statusLabel.setStyle("-fx-padding: 0 10px 0 10px; -fx-alignment: center-left;");
 
-        //ContextMenu contextMenu = createContextMenu(webView, webEngine);
-        //webView.setOnContextMenuRequested(event -> {
-        //    contextMenu.show(webView, event.getScreenX(), event.getScreenY());
-        //});
+        tab.setOnCloseRequest(event -> {
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+            alert.setTitle("Close Tab?");
+            alert.setHeaderText("Are you sure you want to close this tab?");
+            alert.setContentText("You might lose unsaved data.");
+            Optional<ButtonType> result = alert.showAndWait();
+            if (result.isPresent() && result.get() == ButtonType.CANCEL) {
+                event.consume();
+            }
+        });
 
         tabPane.getTabs().add(tab);
         tabPane.getSelectionModel().select(tab);
+    }
+
+    private void setFavicon(Tab tab, WebEngine webEngine) {
+        String url = webEngine.getLocation();
+        String faviconUrl = "https://www.google.com/s2/favicons?domain=" + url; // Favicon API
+        Image favicon = new Image(faviconUrl);
+        tab.setGraphic(new ImageView(favicon));
     }
 
     private ContextMenu createContextMenu(WebView webView, WebEngine webEngine) {

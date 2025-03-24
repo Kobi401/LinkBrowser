@@ -9,8 +9,6 @@ import com.kobi401.browser.ui.ThemeManager;
 import com.kobi401.browser.utils.AppInfo;
 import javafx.application.Platform;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.layout.Region;
 import javafx.util.Duration;
 
 // Since Link uses FXGL now for the engine it should allow running on anything with a screen!
@@ -30,9 +28,9 @@ public class Launch extends GameApplication {
         settings.setGameMenuEnabled(false);
         settings.setManualResizeEnabled(true);
 
-        boolean isDebugMode = Boolean.parseBoolean(System.getProperty("debug.mode", "false"));
-        settings.setDeveloperMenuEnabled(isDebugMode);
-        System.out.println("Debug mode: " + (isDebugMode ? "Enabled" : "Disabled"));
+        //boolean isDebugMode = Boolean.parseBoolean(System.getProperty("debug.mode", "false"));
+        //settings.setDeveloperMenuEnabled(isDebugMode);
+        //System.out.println("Debug mode: " + (isDebugMode ? "Enabled" : "Disabled"));
 
         String osName = System.getProperty("os.name").toLowerCase();
         settings.setWidth(getWidthForOS(osName));
@@ -57,7 +55,7 @@ public class Launch extends GameApplication {
     @Override
     protected void initGame() {
         Platform.runLater(() -> FXGL.getPrimaryStage().hide());
-        FXGL.runOnce(this::showMainStage, Duration.seconds(3));
+        FXGL.runOnce(this::showMainStage, Duration.seconds(5));
     }
 
     @Override
