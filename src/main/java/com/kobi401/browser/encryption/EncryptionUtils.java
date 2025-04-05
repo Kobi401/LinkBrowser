@@ -1,10 +1,15 @@
 package com.kobi401.browser.encryption;
 
+import com.kobi401.browser.utils.debug.Debugger;
+
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.ArrayList;
@@ -15,11 +20,42 @@ public class EncryptionUtils {
     private static final String ALGORITHM = "AES/GCM/NoPadding";
     private static final String ENCODING = "UTF-8";
     private static final int IV_LENGTH = 12; //length of IV for GCM mode
+    private static final int KEY_SIZE = 256;
+    private static final String KEY_FILE_NAME = "LinkBrowser/User/key.dat";
     private static final String HISTORY_FILE_NAME = "LinkBrowser/User/webHistory.dat";
     private SecretKey secretKey;
 
     public EncryptionUtils() {
-        this.secretKey = generateSecretKey();
+        this.secretKey = loadOrGenerateSecretKey();
+    }
+
+    private SecretKey loadOrGenerateSecretKey() {
+        File keyFile = new File(KEY_FILE_NAME);
+
+        File parentDir = keyFile.getParentFile();
+        if (parentDir != null && !parentDir.exists()) {
+            parentDir.mkdirs();
+        }
+
+        if (keyFile.exists()) {
+            try {
+                byte[] keyBytes = Files.readAllBytes(keyFile.toPath());
+                return new SecretKeySpec(keyBytes, "AES");
+            } catch (IOException e) {
+                System.err.println("Error reading secret key: " + e.getMessage());
+            }
+        }
+
+        try {
+            KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+            keyGenerator.init(KEY_SIZE);
+            SecretKey key = keyGenerator.generateKey();
+
+            Files.write(keyFile.toPath(), key.getEncoded(), StandardOpenOption.CREATE);
+            return key;
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating secret key", e);
+        }
     }
 
     public String encrypt(String data) throws Exception {
@@ -62,6 +98,58 @@ public class EncryptionUtils {
         } catch (Exception e) {
             throw new RuntimeException("Error generating secret key", e);
         }
+    }
+
+    public void saveToFile(String data, String fileName) {
+        try {
+            File file = getFile(fileName);
+            file.getParentFile().mkdirs();
+
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+                writer.write(encrypt(data));
+            }
+        } catch (Exception e) {
+            System.err.println("Error saving to file: " + e.getMessage());
+        }
+    }
+
+    public String loadFromFile(String fileName) {
+        try {
+            File file = getFile(fileName);
+            if (!file.exists()) {
+                return "";
+            }
+
+            StringBuilder encryptedData = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    encryptedData.append(line);
+                }
+            }
+            return decrypt(encryptedData.toString());
+        } catch (Exception e) {
+            System.err.println("Error loading from file: " + e.getMessage());
+            return "";
+        }
+    }
+
+    public void clearFile(String fileName) {
+        try {
+            File file = getFile(fileName);
+            if (file.exists() && file.delete()) {
+                System.out.println("File cleared successfully: " + fileName);
+            } else {
+                System.err.println("Failed to clear file: " + fileName);
+            }
+        } catch (Exception e) {
+            System.err.println("Error clearing file: " + e.getMessage());
+        }
+    }
+
+    private File getFile(String fileName) {
+        String userHome = System.getProperty("user.home");
+        return new File(userHome, fileName);
     }
 
     public void saveHistory(List<String> history) {
@@ -113,7 +201,7 @@ public class EncryptionUtils {
         File historyFile = getHistoryFile();
         if (historyFile.exists()) {
             if (historyFile.delete()) {
-                System.out.println("History file deleted successfully.");
+                Debugger.println("History file deleted successfully.");
             } else {
                 System.err.println("Failed to delete history file.");
             }
