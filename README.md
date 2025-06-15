@@ -49,4 +49,4 @@ I welcome contributions.
 5. Submit a pull request  
 
 ### License  
-MIT License – Free to use and modify  
+GPL License – any modifications or derivatives of Link also be released under the same copyleft license.
